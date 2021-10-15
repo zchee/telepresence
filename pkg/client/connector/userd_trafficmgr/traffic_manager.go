@@ -190,13 +190,35 @@ func (tm *trafficManager) Run(c context.Context) error {
 
 	// Gotta call RegisterManagerServer before we call daemon.SetOutboundInfo which tells the
 	// daemon to use the proxy.
-	tm.callbacks.RegisterManagerServer(userd_grpc.NewManagerProxy(tm.managerClient))
+	proxy := userd_grpc.NewManagerProxy(tm.managerClient)
+	tm.callbacks.RegisterManagerServer(proxy)
 
 	// Tell daemon what it needs to know in order to establish outbound traffic to the cluster
 	if _, err := tm.callbacks.SetOutboundInfo(c, tm.getOutboundInfo()); err != nil {
 		tm.managerClient = nil
 		return fmt.Errorf("daemon.SetOutboundInfo: %w", err)
 	}
+
+	dlog.Info(c, "Trying to reconnect")
+	conn.Close()
+	tc, cancel = tos.TimeoutContext(c, client.TimeoutTrafficManagerAPI)
+	defer cancel()
+	conn, err = grpc.DialContext(tc, grpcAddr, opts...)
+	if err != nil {
+		return client.CheckTimeout(tc, fmt.Errorf("dial manager: %w", err))
+	}
+	tm.managerClient = manager.NewManagerClient(conn)
+	_, err = tm.managerClient.Remain(c, &manager.RemainRequest{
+		Session: tm.session(),
+		ApiKey:  "",
+	})
+	if err != nil {
+		dlog.Errorf(c, "Didn't work: %v", err)
+		return err
+	}
+	dlog.Info(c, "Hey it worked!")
+	proxy.SetClient(tm.managerClient)
+	dlog.Info(c, "Client has been set")
 
 	close(tm.startup)
 

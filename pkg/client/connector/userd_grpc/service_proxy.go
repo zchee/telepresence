@@ -15,8 +15,14 @@ import (
 	managerrpc "github.com/telepresenceio/telepresence/rpc/v2/manager"
 )
 
+type ManagerProxy interface {
+	managerrpc.ManagerServer
+	SetClient(client managerrpc.ManagerClient)
+}
+
 // mgrProxy implements rpc.ManagerServer, but just proxies all requests through a rpc.ManagerClient.
 type mgrProxy struct {
+	clientLock  sync.RWMutex
 	client      managerrpc.ManagerClient
 	callOptions []grpc.CallOption
 
@@ -24,47 +30,74 @@ type mgrProxy struct {
 }
 
 // NewManagerProxy returns a rpc.ManagerServer that just proxies all requests through the given rpc.ManagerClient.
-func NewManagerProxy(client managerrpc.ManagerClient, callOptions ...grpc.CallOption) managerrpc.ManagerServer {
+func NewManagerProxy(client managerrpc.ManagerClient, callOptions ...grpc.CallOption) ManagerProxy {
 	return &mgrProxy{
 		client:      client,
 		callOptions: callOptions,
 	}
 }
+
+func (p *mgrProxy) SetClient(client managerrpc.ManagerClient) {
+	p.clientLock.Lock()
+	defer p.clientLock.Unlock()
+	p.client = client
+}
+
 func (p *mgrProxy) GetIntercept(ctx context.Context, arg *managerrpc.GetInterceptRequest) (*managerrpc.InterceptInfo, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.GetIntercept(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) Version(ctx context.Context, arg *empty.Empty) (*managerrpc.VersionInfo2, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.Version(ctx, arg, p.callOptions...)
 }
 func (p *mgrProxy) GetLicense(ctx context.Context, arg *empty.Empty) (*managerrpc.License, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.GetLicense(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) CanConnectAmbassadorCloud(ctx context.Context, arg *empty.Empty) (*managerrpc.AmbassadorCloudConnection, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.CanConnectAmbassadorCloud(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) GetCloudConfig(ctx context.Context, arg *empty.Empty) (*managerrpc.AmbassadorCloudConfig, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	// TODO (dyung): We might want to make this always return an error since the
 	// client should already have the config.
 	return p.client.GetCloudConfig(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) ArriveAsClient(ctx context.Context, arg *managerrpc.ClientInfo) (*managerrpc.SessionInfo, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.ArriveAsClient(ctx, arg, p.callOptions...)
 }
 func (p *mgrProxy) ArriveAsAgent(ctx context.Context, arg *managerrpc.AgentInfo) (*managerrpc.SessionInfo, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.ArriveAsAgent(ctx, arg, p.callOptions...)
 }
 func (p *mgrProxy) Remain(ctx context.Context, arg *managerrpc.RemainRequest) (*empty.Empty, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.Remain(ctx, arg, p.callOptions...)
 }
 func (p *mgrProxy) Depart(ctx context.Context, arg *managerrpc.SessionInfo) (*empty.Empty, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.Depart(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) WatchAgents(arg *managerrpc.SessionInfo, srv managerrpc.Manager_WatchAgentsServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	cli, err := p.client.WatchAgents(srv.Context(), arg, p.callOptions...)
 	if err != nil {
 		return err
@@ -83,6 +116,8 @@ func (p *mgrProxy) WatchAgents(arg *managerrpc.SessionInfo, srv managerrpc.Manag
 	}
 }
 func (p *mgrProxy) WatchIntercepts(arg *managerrpc.SessionInfo, srv managerrpc.Manager_WatchInterceptsServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	cli, err := p.client.WatchIntercepts(srv.Context(), arg, p.callOptions...)
 	if err != nil {
 		return err
@@ -108,13 +143,19 @@ func (p *mgrProxy) RemoveIntercept(ctx context.Context, arg *managerrpc.RemoveIn
 	return nil, errors.New("must call connector.RemoveIntercept instead of manager.RemoveIntercept")
 }
 func (p *mgrProxy) UpdateIntercept(ctx context.Context, arg *managerrpc.UpdateInterceptRequest) (*managerrpc.InterceptInfo, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.UpdateIntercept(ctx, arg, p.callOptions...)
 }
 func (p *mgrProxy) ReviewIntercept(ctx context.Context, arg *managerrpc.ReviewInterceptRequest) (*empty.Empty, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.ReviewIntercept(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) ClientTunnel(fhDaemon managerrpc.Manager_ClientTunnelServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	ctx := fhDaemon.Context()
 	fhManager, err := p.client.ClientTunnel(ctx, p.callOptions...)
 	if err != nil {
@@ -220,6 +261,8 @@ func sendLoop(ctx context.Context, who string, out tmSender, in <-chan *managerr
 }
 
 func (p *mgrProxy) Tunnel(fhClient managerrpc.Manager_TunnelServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	ctx := fhClient.Context()
 	fhManager, err := p.client.Tunnel(ctx, p.callOptions...)
 	if err != nil {
@@ -239,6 +282,8 @@ func (p *mgrProxy) Tunnel(fhClient managerrpc.Manager_TunnelServer) error {
 }
 
 func (p *mgrProxy) WatchDial(arg *managerrpc.SessionInfo, srv managerrpc.Manager_WatchDialServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	cli, err := p.client.WatchDial(srv.Context(), arg, p.callOptions...)
 	if err != nil {
 		return err
@@ -258,10 +303,14 @@ func (p *mgrProxy) WatchDial(arg *managerrpc.SessionInfo, srv managerrpc.Manager
 }
 
 func (p *mgrProxy) LookupHost(ctx context.Context, arg *managerrpc.LookupHostRequest) (*managerrpc.LookupHostResponse, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.LookupHost(ctx, arg, p.callOptions...)
 }
 
 func (p *mgrProxy) AgentLookupHostResponse(ctx context.Context, arg *managerrpc.LookupHostAgentResponse) (*empty.Empty, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.AgentLookupHostResponse(ctx, arg, p.callOptions...)
 }
 
@@ -270,6 +319,8 @@ func (p *mgrProxy) WatchLookupHost(_ *managerrpc.SessionInfo, server managerrpc.
 }
 
 func (p *mgrProxy) WatchClusterInfo(arg *managerrpc.SessionInfo, srv managerrpc.Manager_WatchClusterInfoServer) error {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	cli, err := p.client.WatchClusterInfo(srv.Context(), arg, p.callOptions...)
 	if err != nil {
 		return err
@@ -289,10 +340,14 @@ func (p *mgrProxy) WatchClusterInfo(arg *managerrpc.SessionInfo, srv managerrpc.
 }
 
 func (p *mgrProxy) SetLogLevel(ctx context.Context, request *managerrpc.LogLevelRequest) (*empty.Empty, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.SetLogLevel(ctx, request, p.callOptions...)
 }
 
 func (p *mgrProxy) GetLogs(ctx context.Context, request *managerrpc.GetLogsRequest) (*managerrpc.LogsResponse, error) {
+	p.clientLock.RLock()
+	defer p.clientLock.RUnlock()
 	return p.client.GetLogs(ctx, request, p.callOptions...)
 }
 
