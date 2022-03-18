@@ -50,6 +50,8 @@ type Server struct {
 	// The domainsLock locks usage of namespaces, domains, and search
 	domainsLock sync.RWMutex
 
+	dc dns.Client
+
 	// searchPathCh receives requests to change the search path.
 	searchPathCh chan []string
 
@@ -403,6 +405,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
+	dlog.Tracef(c, "DNS Query for %s", q.Name)
 	qts := dns.TypeToString[q.Qtype]
 	answer, err := s.cacheResolve(q)
 	var rc int
@@ -418,6 +421,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}()
 
 	if err == nil && answer != nil {
+		dlog.Tracef(c, "Answer for %s found in cache: %s", q.Name, answerString(answer))
 		rc = dns.RcodeSuccess
 		msg = new(dns.Msg)
 		msg.SetReply(r)
@@ -451,8 +455,9 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	pfx = func() string { return fmt.Sprintf("(%s) ", s.fallback.RemoteAddr()) }
-	dc := dns.Client{Net: "udp", Timeout: s.config.LookupTimeout.AsDuration()}
-	msg, _, err = dc.ExchangeWithConn(r, s.fallback)
+	dlog.Tracef(c, "About to try the fallback for %s", q.Name)
+	msg, rtt, err := s.dc.ExchangeWithConn(r, s.fallback)
+	dlog.Tracef(c, "Got response from fallback for %s (%s)", q.Name, rtt)
 	if err != nil {
 		msg = new(dns.Msg)
 		rc = dns.RcodeServerFailure
@@ -533,6 +538,11 @@ func (s *Server) Run(c context.Context, initDone chan<- struct{}, listeners []ne
 	s.ctx = c
 	s.fallback = fallback
 	s.resolve = resolve
+	s.dc = dns.Client{
+		Net:            "udp",
+		Timeout:        s.config.LookupTimeout.AsDuration(),
+		SingleInflight: true,
+	}
 
 	g := dgroup.NewGroup(c, dgroup.GroupConfig{})
 	for _, listener := range listeners {
