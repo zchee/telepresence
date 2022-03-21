@@ -50,7 +50,8 @@ type Server struct {
 	// The domainsLock locks usage of namespaces, domains, and search
 	domainsLock sync.RWMutex
 
-	dc dns.Client
+	dc   dns.Client
+	lock sync.Mutex
 
 	// searchPathCh receives requests to change the search path.
 	searchPathCh chan []string
@@ -456,7 +457,9 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	pfx = func() string { return fmt.Sprintf("(%s) ", s.fallback.RemoteAddr()) }
 	dlog.Tracef(c, "About to try the fallback for %s", q.Name)
+	s.lock.Lock()
 	msg, rtt, err := s.dc.ExchangeWithConn(r, s.fallback)
+	s.lock.Unlock()
 	dlog.Tracef(c, "Got response from fallback for %s (%s)", q.Name, rtt)
 	if err != nil {
 		msg = new(dns.Msg)
