@@ -17,6 +17,7 @@ vendor/
 # Editor nonsense
 .vscode
 .idea
+.vagrant
 *.iml
 *.swp
 .DS_Store

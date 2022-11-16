@@ -1,0 +1,43 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+microk8sVersion = '1.25'
+
+Vagrant.configure("2") do |config|
+  config.vm.synced_folder "../../build-output/bin/", "/build-bin"
+  config.vm.synced_folder "../../build-output/bin/", "/build-bin"
+  config.vm.synced_folder "../../k8s/", "/k8s"
+  config.vm.box = "ubuntu/kinetic64"
+
+  config.vm.provider 'virtualbox' do |vb|
+    vb.memory = 8192
+    vb.name = 'tel2microk8s'
+    vb.cpus = 4
+    vb.gui = false
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    echo "---> installing microk8s..."
+    snap install microk8s --classic --channel=#{microk8sVersion}
+    microk8s status --wait-ready
+    microk8s enable dns rbac storage
+    usermod -a -G microk8s vagrant
+
+    echo "---> installing telepresence..."
+    cp /build-bin/telepresence /usr/local/bin/telepresence
+    mkdir -p /home/vagrant/.config/telepresence
+    cat << 'EOF' > /home/vagrant/.config/telepresence/config.yml
+timeouts:
+logLevels:
+  userDaemon: debug
+  rootDaemon: debug
+intercept:
+  useFtp: true
+EOF
+    echo "---> setting default k8s context..."
+    mkdir -p /home/vagrant/.kube
+    microk8s config > /home/vagrant/.kube/config
+    chown -f -R vagrant /home/vagrant/.kube
+  SHELL
+end
+

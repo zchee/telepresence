@@ -1,0 +1,103 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+minikubeVersion = '1.25'
+
+admin_script = <<~"SHELL"
+  apt-get update
+
+  # Fuse is necessary when mounting using ftp or sshfs.
+  apt-get install -y fuse
+  echo "user_allow_other" >> /etc/fuse.conf
+
+  # Some other nice to have tools, but not strictly necessary.
+  apt-get install -y net-tools zsh
+  chsh -s /usr/bin/zsh vagrant
+
+  # Install docker (we're using minikube with the docker driver.
+  apt-get install -y ca-certificates curl gnupg lsb-release socat
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  apt-get update
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  usermod -aG docker vagrant
+
+  # install minikube
+  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  install minikube-linux-amd64 /usr/local/bin/minikube
+
+  # install kubectl (code completion doesn't work properly when aliasing "minikube kubectl --").
+  snap install --classic kubectl
+
+  # install telepresence
+  install /build-output/bin/telepresence /usr/local/bin/telepresence
+SHELL
+
+user_script = <<~"SHELL"
+  # start the minikube cluster
+  minikube start --driver=docker --insecure-registry "10.0.0.0/24" --interactive=false 2> /dev/null
+
+  # enable the local registry and make it reachable at localhost:5000.
+  minikube addons enable registry
+  socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000&
+
+  # push the traffic-manager/traffic-agent image
+  docker load -i /build-output/tel2-image.tar
+  tag=$(cat /build-output/version.txt)
+  tag=${tag:1}
+  docker tag datawire/tel2:$tag localhost:5000/tel2:$tag
+  docker push localhost:5000/tel2:$tag
+
+  # Install the traffic-manager. Configure the Helm chart so that it uses the image that was pushed.
+  cat <<EOF > values.yaml
+  logLevel: debug
+  image:
+    registry: localhost:5000
+    tag: $tag
+  agent:
+    image:
+      registry: localhost:5000
+      name: tel2
+      tag: $tag
+  client:
+    logLevels:
+      userDaemon: debug
+      rootDaemon: debug
+    intercept:
+      useFtp: true
+  EOF
+  telepresence helm install --values values.yaml
+
+  # install oh-my-zsh, and add completion for kubectl and telepresence.
+  mkdir -p ~/.config/telepresence
+  telepresence completion zsh > ~/.config/telepresence/completions.zsh
+  sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh) --unattended"
+  sed -i 's/^plugins=.*/plugins=(git kubectl)/' .zshrc
+  cat <<'EOF' >> .zshrc
+  alias t=telepresence
+  alias userlog='tail -n400 -F $HOME/.cache/telepresence/logs/connector.log
+  alias rootlog='tail -n400 -F $HOME/.cache/telepresence/logs/daemon.log
+  . ~/.config/telepresence/completions.zsh
+  compdef _telepresence telepresence
+  EOF
+SHELL
+
+Vagrant.configure("2") do |config|
+  config.vm.synced_folder "../../build-output/", "/build-output"
+  config.vm.synced_folder "../../integration_test/testdata/k8s/", "/k8s"
+  config.vm.box = "ubuntu/kinetic64"
+
+  config.vm.provider 'virtualbox' do |vb|
+    vb.memory = 8192
+    vb.name = 'tel2minikube'
+    vb.cpus = 4
+    vb.gui = false
+  end
+
+  config.vm.provision "shell", inline: admin_script, privileged: true, reset: true
+  config.vm.provision "shell", inline: user_script, privileged: false
+end
+
