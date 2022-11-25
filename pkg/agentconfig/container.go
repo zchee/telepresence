@@ -65,6 +65,19 @@ func AgentContainer(
 			},
 		})
 
+	if config.InterceptHeaderKey != "" && config.InterceptHeaderValue != "" {
+		evs = append(evs,
+			core.EnvVar{
+				Name:  EnvPrefixAgent + "INTERCEPT_HEADER_KEY",
+				Value: config.InterceptHeaderKey,
+			},
+			core.EnvVar{
+				Name:  EnvPrefixAgent + "INTERCEPT_HEADER_VALUE",
+				Value: config.InterceptHeaderValue,
+			},
+		)
+	}
+
 	mounts := make([]core.VolumeMount, 0, len(config.Containers)*3)
 	EachContainer(pod, config, func(app *core.Container, cc *Container) {
 		mounts = appendAppContainerVolumeMounts(app, cc, mounts, pod.ObjectMeta.Annotations)

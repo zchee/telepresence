@@ -3,6 +3,7 @@ package a8rcloud
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"sync"
 
@@ -160,6 +161,7 @@ func (c *systemACredentials) GetRequestMetadata(ctx context.Context, _ ...string
 		headers[InstallIDHeader] = installID
 	}
 	if extra, err := c.headers.GetExtraHeaders(ctx); err != nil {
+		fmt.Println(extra)
 		return nil, err
 	} else {
 		for header, val := range extra {

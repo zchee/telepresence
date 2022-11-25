@@ -150,6 +150,12 @@ type Sidecar struct {
 
 	// The intercepts managed by the agent
 	Containers []*Container `json:"containers,omitempty"`
+
+	// Header key for a personal intercept : helps to debug the agent.
+	InterceptHeaderKey string `json:"interceptHeaderKey"`
+
+	// Header value for a personal intercept : helps to debug the agent.
+	InterceptHeaderValue string `json:"interceptHeaderValue"`
 }
 
 func (s *Sidecar) RecordInSpan(span trace.Span) {

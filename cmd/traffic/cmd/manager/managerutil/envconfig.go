@@ -29,14 +29,15 @@ import (
 // The Env is responsible for all parsing of the environment strings. No parsing of such
 // strings should be made elsewhere in the code.
 type Env struct {
-	LogLevel               string   `env:"LOG_LEVEL,                parser=logLevel"`
-	User                   string   `env:"USER,                     parser=string,      default="`
-	ServerHost             string   `env:"SERVER_HOST,              parser=string,      default="`
-	ServerPort             uint16   `env:"SERVER_PORT,              parser=port-number"`
-	PrometheusPort         uint16   `env:"PROMETHEUS_PORT,          parser=port-number, default=0"`
-	MutatorWebhookPort     uint16   `env:"MUTATOR_WEBHOOK_PORT,     parser=port-number, default=0"`
-	SystemAHost            string   `env:"SYSTEMA_HOST,             parser=string,      default="`
-	SystemAPort            uint16   `env:"SYSTEMA_PORT,             parser=port-number, default=0"`
+	LogLevel           string `env:"LOG_LEVEL,                parser=logLevel"`
+	User               string `env:"USER,                     parser=string,      default="`
+	ServerHost         string `env:"SERVER_HOST,              parser=string,      default="`
+	ServerPort         uint16 `env:"SERVER_PORT,              parser=port-number"`
+	PrometheusPort     uint16 `env:"PROMETHEUS_PORT,          parser=port-number, default=0"`
+	MutatorWebhookPort uint16 `env:"MUTATOR_WEBHOOK_PORT,     parser=port-number, default=0"`
+	SystemAHost        string `env:"SYSTEMA_HOST,             parser=string,      default="`
+	SystemAPort        uint16 `env:"SYSTEMA_PORT,             parser=port-number, default=0"`
+
 	ManagerNamespace       string   `env:"MANAGER_NAMESPACE,        parser=string,      default="`
 	ManagedNamespaces      []string `env:"MANAGED_NAMESPACES,       parser=split-trim,  default="`
 	APIPort                uint16   `env:"AGENT_REST_API_PORT,      parser=port-number, default=0"`
@@ -49,17 +50,19 @@ type Env struct {
 	PodCIDRs        []*net.IPNet `env:"POD_CIDRS,         parser=split-ipnet, default="`
 	PodIP           net.IP       `env:"POD_IP,            parser=ip"`
 
-	AgentRegistry            string                     `env:"AGENT_REGISTRY,           parser=nonempty-string"`
-	AgentImage               string                     `env:"AGENT_IMAGE,              parser=string,         default="`
-	AgentInjectPolicy        agentconfig.InjectPolicy   `env:"AGENT_INJECT_POLICY,      parser=enable-policy"`
-	AgentAppProtocolStrategy k8sapi.AppProtocolStrategy `env:"AGENT_APP_PROTO_STRATEGY, parser=app-proto-strategy"`
-	AgentLogLevel            string                     `env:"AGENT_LOG_LEVEL,          parser=logLevel,       defaultFrom=LogLevel"`
-	AgentPort                uint16                     `env:"AGENT_PORT,               parser=port-number"`
-	AgentResources           *core.ResourceRequirements `env:"AGENT_RESOURCES,          parser=json-resources, default="`
-	AgentInitResources       *core.ResourceRequirements `env:"AGENT_INIT_RESOURCES,     parser=json-resources, default="`
-	AgentEnvoyLogLevel       string                     `env:"AGENT_ENVOY_LOG_LEVEL,    parser=logLevel,       defaultFrom=AgentLogLevel"`
-	AgentEnvoyServerPort     uint16                     `env:"AGENT_ENVOY_SERVER_PORT,  parser=port-number"`
-	AgentEnvoyAdminPort      uint16                     `env:"AGENT_ENVOY_ADMIN_PORT,   parser=port-number"`
+	AgentRegistry             string                     `env:"AGENT_REGISTRY,           parser=nonempty-string"`
+	AgentImage                string                     `env:"AGENT_IMAGE,              parser=string,         default="`
+	AgentInjectPolicy         agentconfig.InjectPolicy   `env:"AGENT_INJECT_POLICY,      parser=enable-policy"`
+	AgentInterceptHeaderKey   string                     `env:"AGENT_INTERCEPT_HEADER_KEY,     parser=string,      default="`
+	AgentInterceptHeaderValue string                     `env:"AGENT_INTERCEPT_HEADER_VALUE,   parser=string,      default="`
+	AgentAppProtocolStrategy  k8sapi.AppProtocolStrategy `env:"AGENT_APP_PROTO_STRATEGY, parser=app-proto-strategy"`
+	AgentLogLevel             string                     `env:"AGENT_LOG_LEVEL,          parser=logLevel,       defaultFrom=LogLevel"`
+	AgentPort                 uint16                     `env:"AGENT_PORT,               parser=port-number"`
+	AgentResources            *core.ResourceRequirements `env:"AGENT_RESOURCES,          parser=json-resources, default="`
+	AgentInitResources        *core.ResourceRequirements `env:"AGENT_INIT_RESOURCES,     parser=json-resources, default="`
+	AgentEnvoyLogLevel        string                     `env:"AGENT_ENVOY_LOG_LEVEL,    parser=logLevel,       defaultFrom=AgentLogLevel"`
+	AgentEnvoyServerPort      uint16                     `env:"AGENT_ENVOY_SERVER_PORT,  parser=port-number"`
+	AgentEnvoyAdminPort       uint16                     `env:"AGENT_ENVOY_ADMIN_PORT,   parser=port-number"`
 
 	ClientRoutingAlsoProxySubnets  []*net.IPNet  `env:"CLIENT_ROUTING_ALSO_PROXY_SUBNETS,  parser=split-ipnet, default="`
 	ClientRoutingNeverProxySubnets []*net.IPNet  `env:"CLIENT_ROUTING_NEVER_PROXY_SUBNETS, parser=split-ipnet, default="`
@@ -72,18 +75,20 @@ type envKey struct{}
 
 func (e *Env) GeneratorConfig(qualifiedAgentImage string) (*agentmap.GeneratorConfig, error) {
 	return &agentmap.GeneratorConfig{
-		AgentPort:           e.AgentPort,
-		APIPort:             e.APIPort,
-		TracingPort:         e.TracingGrpcPort,
-		ManagerPort:         e.ServerPort,
-		QualifiedAgentImage: qualifiedAgentImage,
-		ManagerNamespace:    e.ManagerNamespace,
-		LogLevel:            e.AgentLogLevel,
-		InitResources:       e.AgentInitResources,
-		Resources:           e.AgentResources,
-		EnvoyServerPort:     e.AgentEnvoyServerPort,
-		EnvoyAdminPort:      e.AgentEnvoyAdminPort,
-		EnvoyLogLevel:       e.AgentEnvoyLogLevel,
+		AgentPort:            e.AgentPort,
+		APIPort:              e.APIPort,
+		TracingPort:          e.TracingGrpcPort,
+		ManagerPort:          e.ServerPort,
+		QualifiedAgentImage:  qualifiedAgentImage,
+		ManagerNamespace:     e.ManagerNamespace,
+		LogLevel:             e.AgentLogLevel,
+		InitResources:        e.AgentInitResources,
+		Resources:            e.AgentResources,
+		EnvoyServerPort:      e.AgentEnvoyServerPort,
+		EnvoyAdminPort:       e.AgentEnvoyAdminPort,
+		EnvoyLogLevel:        e.AgentEnvoyLogLevel,
+		InterceptHeaderKey:   e.AgentInterceptHeaderKey,
+		InterceptHeaderValue: e.AgentInterceptHeaderValue,
 	}, nil
 }
 
