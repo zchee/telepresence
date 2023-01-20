@@ -192,13 +192,17 @@ func NewSession(
 		}
 	}
 
+	if err = tmgr.parseProxyParameters(cr); err != nil {
+		dlog.Warnf(ctx, "Failed to set additional proxy parameters from connection: %w", err)
+	}
+
 	// Connect to the root daemon if it is running. It's the CLI that starts it initially
 	rdRunning, err := client.IsRunning(ctx, client.DaemonSocketName)
 	if err != nil {
 		return ctx, nil, connectError(rpc.ConnectInfo_DAEMON_FAILED, err)
 	}
 	if rdRunning {
-		tmgr.rootDaemon, err = connectRootDaemon(ctx, tmgr.getOutboundInfo(ctx))
+		tmgr.rootDaemon, err = connectRootDaemon(ctx, tmgr.getOutboundInfo(ctx, cr))
 		if err != nil {
 			tmgr.managerConn.Close()
 			return ctx, nil, connectError(rpc.ConnectInfo_DAEMON_FAILED, err)
@@ -1025,20 +1029,42 @@ func (s *session) Uninstall(ctx context.Context, ur *rpc.UninstallRequest) (*com
 	return errcat.ToResult(nil), nil
 }
 
+func (s *session) parseProxyParameters(cr *rpc.ConnectRequest) error {
+	if cr.AlsoProxy != nil {
+		for i := range cr.AlsoProxy {
+			_, ipNet, err := net.ParseCIDR(cr.AlsoProxy[i])
+			if err != nil {
+				return fmt.Errorf("failed to parse also proxy parameter CIDR: %w", err)
+			}
+			s.AlsoProxy = append(s.AlsoProxy, (*iputil.Subnet)(ipNet))
+		}
+	}
+	if cr.NeverProxy != nil {
+		for i := range cr.NeverProxy {
+			_, ipNet, err := net.ParseCIDR(cr.AlsoProxy[i])
+			if err != nil {
+				return fmt.Errorf("failed to parse never-proxy parameter CIDR: %w", err)
+			}
+			s.NeverProxy = append(s.NeverProxy, (*iputil.Subnet)(ipNet))
+		}
+	}
+	return nil
+}
+
 // getClusterCIDRs finds the service CIDR and the pod CIDRs of all nodes in the cluster.
-func (s *session) getOutboundInfo(ctx context.Context) *daemon.OutboundInfo {
+func (s *session) getOutboundInfo(ctx context.Context, cr *rpc.ConnectRequest) *daemon.OutboundInfo {
 	// We'll figure out the IP address of the API server(s) so that we can tell the daemon never to proxy them.
 	// This is because in some setups the API server will be in the same CIDR range as the pods, and the
 	// daemon will attempt to proxy traffic to it. This usually results in a loss of all traffic to/from
 	// the cluster, since an open tunnel to the traffic-manager (via the API server) is itself required
 	// to communicate with the cluster.
 	neverProxy := []*manager.IPNet{}
-	url, err := url.Parse(s.Server)
+	serverURL, err := url.Parse(s.Server)
 	if err != nil {
 		// This really shouldn't happen as we are connected to the server
 		dlog.Errorf(ctx, "Unable to parse url for k8s server %s: %v", s.Server, err)
 	} else {
-		hostname := url.Hostname()
+		hostname := serverURL.Hostname()
 		rawIP := iputil.Parse(hostname)
 		ips := []net.IP{rawIP}
 		if rawIP == nil {
