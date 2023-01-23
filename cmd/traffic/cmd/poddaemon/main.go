@@ -141,7 +141,7 @@ func main(ctx context.Context, args *Args) error {
 		EnableSignalHandling: true,
 		ShutdownOnNonError:   true,
 	})
-	userdService, err := user_daemon.NewService(ctx, grp, scoutReporter, cfg, nil)
+	userdService, err := user_daemon.NewService(ctx, grp, client.KubeConfigResolver{}, scoutReporter, cfg, nil)
 	if err != nil {
 		return err
 	}

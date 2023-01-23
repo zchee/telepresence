@@ -19,12 +19,12 @@ import (
 	"github.com/telepresenceio/telepresence/v2/pkg/filelocation"
 )
 
-func InitContext(ctx context.Context) context.Context {
+func InitContext(ctx context.Context, sb *trafficmgr.SessionBuilder) context.Context {
 	switch client.ProcessName() {
 	case userd.ProcessName:
 		client.DisplayName = "OSS User Daemon"
 		ctx = userd.WithNewServiceFunc(ctx, userDaemon.NewService)
-		ctx = userd.WithNewSessionFunc(ctx, trafficmgr.NewSession)
+		ctx = userd.WithNewSessionFunc(ctx, sb.NewSession)
 	case rootd.ProcessName:
 		client.DisplayName = "OSS Root Daemon"
 		ctx = rootd.WithNewServiceFunc(ctx, rootd.NewService)

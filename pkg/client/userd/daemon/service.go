@@ -55,6 +55,7 @@ type Service struct {
 	timedLogLevel log.TimedLevel
 	ucn           int64
 	fuseFTPError  error
+	kcr           *client.KubeConfigResolver
 	scout         *scout.Reporter
 
 	quit func()
@@ -73,10 +74,13 @@ type Service struct {
 	startFuseCh chan struct{}
 }
 
-func NewService(ctx context.Context, _ *dgroup.Group, sr *scout.Reporter, cfg *client.Config, srv *grpc.Server) (userd.Service, error) {
+func NewService(
+	ctx context.Context, _ *dgroup.Group, kcr *client.KubeConfigResolver, sr *scout.Reporter, cfg *client.Config, srv *grpc.Server,
+) (userd.Service, error) {
 	s := &Service{
 		srv:             srv,
 		scout:           sr,
+		kcr:             kcr,
 		connectRequest:  make(chan *rpc.ConnectRequest),
 		connectResponse: make(chan *rpc.ConnectInfo),
 		managerProxy:    &mgrProxy{},
@@ -318,7 +322,7 @@ func run(cmd *cobra.Command, _ []string) error {
 			}
 		}
 		sr := scout.NewReporter(c, "connector")
-		si, err := userd.GetNewServiceFunc(c)(c, g, sr, cfg, grpc.NewServer(opts...))
+		si, err := userd.GetNewServiceFunc(c)(c, g, &client.KubeConfigResolver{}, sr, cfg, grpc.NewServer(opts...))
 		if err != nil {
 			close(siCh)
 			return err

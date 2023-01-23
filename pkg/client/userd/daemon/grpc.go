@@ -455,7 +455,7 @@ func (s *Service) Helm(ctx context.Context, req *rpc.HelmRequest) (*common.Resul
 	s.logCall(ctx, "Helm", func(c context.Context) {
 		sr := s.scout
 		if req.Type == rpc.HelmRequest_UNINSTALL {
-			err := trafficmgr.DeleteManager(c, req)
+			err := trafficmgr.DeleteManager(c, s.kcr, req)
 			if err != nil {
 				sr.Report(ctx, "helm_uninstall_failure", scout.Entry{Key: "error", Value: err.Error()})
 				result = errcat.ToResult(err)
@@ -463,7 +463,7 @@ func (s *Service) Helm(ctx context.Context, req *rpc.HelmRequest) (*common.Resul
 				sr.Report(ctx, "helm_uninstall_success")
 			}
 		} else {
-			err := trafficmgr.EnsureManager(c, req)
+			err := trafficmgr.EnsureManager(c, s.kcr, req)
 			if err != nil {
 				sr.Report(ctx, "helm_install_failure", scout.Entry{Key: "error", Value: err.Error()}, scout.Entry{Key: "upgrade", Value: req.Type == rpc.HelmRequest_UPGRADE})
 				result = errcat.ToResult(err)

@@ -2,7 +2,6 @@ package userd
 
 import (
 	"context"
-
 	"google.golang.org/grpc"
 	core "k8s.io/api/core/v1"
 	typed "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -17,7 +16,6 @@ import (
 	"github.com/telepresenceio/telepresence/rpc/v2/manager"
 	"github.com/telepresenceio/telepresence/v2/pkg/agentconfig"
 	"github.com/telepresenceio/telepresence/v2/pkg/client"
-	"github.com/telepresenceio/telepresence/v2/pkg/client/scout"
 	"github.com/telepresenceio/telepresence/v2/pkg/restapi"
 )
 
@@ -82,7 +80,7 @@ type Session interface {
 	GatherLogs(context.Context, *connector.LogsRequest) (*connector.LogsResponse, error)
 	GatherTraces(ctx context.Context, tr *connector.TracesRequest) *common.Result
 
-	Reporter() *scout.Reporter
+	Reporter() Reporter
 	SessionInfo() *manager.SessionInfo
 
 	ApplyConfig(context.Context) error
@@ -92,7 +90,7 @@ type Session interface {
 	Done() <-chan struct{}
 }
 
-type NewSessionFunc func(context.Context, *scout.Reporter, *rpc.ConnectRequest) (context.Context, Session, *connector.ConnectInfo)
+type NewSessionFunc func(context.Context, Reporter, *rpc.ConnectRequest) (context.Context, Session, *connector.ConnectInfo)
 
 type newSessionKey struct{}
 
