@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	"github.com/datawire/dlib/dexec"
+	"github.com/datawire/dlib/dlog"
 	"github.com/telepresenceio/telepresence/v2/pkg/shellquote"
 )
 
@@ -98,6 +99,7 @@ func StartInBackground(args ...string) error {
 }
 
 func StartInBackgroundAsRoot(ctx context.Context, args ...string) error {
+	dlog.Infof(ctx, "Starting %s", args)
 	return startInBackgroundAsRoot(ctx, args...)
 }
 

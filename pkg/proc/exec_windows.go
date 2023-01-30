@@ -2,11 +2,13 @@ package proc
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"golang.org/x/sys/windows"
 
 	"github.com/datawire/dlib/dexec"
+	"github.com/datawire/dlib/dlog"
 	"github.com/telepresenceio/telepresence/v2/pkg/shellquote"
 )
 
@@ -22,11 +24,12 @@ func startInBackground(args ...string) error {
 	return shellExec("open", args[0], args[1:]...)
 }
 
-func startInBackgroundAsRoot(_ context.Context, args ...string) error {
+func startInBackgroundAsRoot(ctx context.Context, args ...string) error {
 	verb := "runas"
 	if isAdmin() {
 		verb = "open"
 	}
+	dlog.Infof(ctx, "VERB IS %s", verb)
 	return shellExec(verb, args[0], args[1:]...)
 }
 
@@ -41,7 +44,11 @@ func shellExec(verb, exe string, args ...string) error {
 		argsStr := shellquote.ShellArgsString(args)
 		argPtr, _ = windows.UTF16PtrFromString(argsStr)
 	}
-	return windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, windows.SW_HIDE)
+	err := windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, windows.SW_HIDE)
+	if err != nil {
+		return fmt.Errorf("Error from the thing is %w; %T", err, err)
+	}
+	return err
 }
 
 func isAdmin() bool {

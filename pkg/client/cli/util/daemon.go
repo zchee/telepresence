@@ -26,19 +26,19 @@ func launchDaemon(ctx context.Context) error {
 	// root permissions.
 	logDir, err := filelocation.AppUserLogDir(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to find AppUserLogDir: %w", err)
 	}
 	logFile := filepath.Join(logDir, "daemon.log")
 	if _, err := os.Stat(logFile); err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return fmt.Errorf("failed to stat logfile %s: %w", logFile, err)
 		}
 		if err = os.MkdirAll(logDir, 0o700); err != nil {
-			return err
+			return fmt.Errorf("failed to makedir logdir %s: %w", logDir, err)
 		}
 		fh, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY, 0o600)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open logfile %s: %w", logFile, err)
 		}
 		_ = fh.Close()
 	}
