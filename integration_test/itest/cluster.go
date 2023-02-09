@@ -300,7 +300,7 @@ func (s *cluster) withBasicConfig(c context.Context, t *testing.T) context.Conte
 	config.Images.PrivateWebhookRegistry = s.AgentRegistry()
 
 	config.Grpc.MaxReceiveSize, _ = resource.ParseQuantity("10Mi")
-	config.Cloud.SystemaHost = "127.0.0.1"
+	config.Cloud.SystemaHost = "app.getambassador.io"
 
 	config.Intercept.UseFtp = true
 
