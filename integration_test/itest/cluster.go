@@ -466,7 +466,7 @@ func (s *cluster) PackageHelmChart(ctx context.Context) (string, error) {
 func (s *cluster) GetValuesForHelm(ctx context.Context, values map[string]string, release bool) []string {
 	nss := GetNamespaces(ctx)
 	settings := []string{
-		"--set", "logLevel=debug",
+		"--set", "logLevel=trace",
 	}
 	if len(nss.ManagedNamespaces) > 0 {
 		settings = append(settings,
@@ -576,7 +576,7 @@ func (s *cluster) TelepresenceHelmInstall(ctx context.Context, upgrade bool, set
 		ClientRbac  xRbac   `json:"clientRbac"`
 		ManagerRbac xRbac   `json:"managerRbac"`
 	}{
-		LogLevel: "debug",
+		LogLevel: "trace",
 		Image:    GetImage(ctx),
 		Agent:    agent,
 		ClientRbac: xRbac{
