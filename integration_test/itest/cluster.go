@@ -276,8 +276,8 @@ func PodCreateTimeout(c context.Context) time.Duration {
 
 func (s *cluster) withBasicConfig(c context.Context, t *testing.T) context.Context {
 	config := client.GetDefaultConfig()
-	config.LogLevels.UserDaemon = logrus.DebugLevel
-	config.LogLevels.RootDaemon = logrus.DebugLevel
+	config.LogLevels.UserDaemon = logrus.TraceLevel
+	config.LogLevels.RootDaemon = logrus.TraceLevel
 
 	to := &config.Timeouts
 	to.PrivateAgentInstall = PodCreateTimeout(c)
