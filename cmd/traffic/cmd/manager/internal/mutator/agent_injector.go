@@ -2,7 +2,6 @@ package mutator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	admission "k8s.io/api/admission/v1"
 	core "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/strings/slices"
 
@@ -120,14 +118,28 @@ func (a *agentInjector) inject(ctx context.Context, req *admission.AdmissionRequ
 			return nil, nil
 		}
 
-		workloadCache := make(map[string]k8sapi.Workload, 0)
-		config, err = a.findConfigMapValue(ctx, workloadCache, pod, nil)
-
+		var wl k8sapi.Workload
+		wl, err = agentmap.FindOwnerWorkload(ctx, pod, wl)
 		if err != nil {
-			if isDelete {
-				err = nil
+			return nil, fmt.Errorf("failed to find pod workload: %w", err)
+		}
+
+		if wl != nil {
+			dlog.Infof(ctx, "Found owner workload %s-%s-%s", wl.GetNamespace(), wl.GetName(), wl.GetKind())
+		}
+		if wl != nil {
+			config, err = a.findConfigMapValue(pod.Namespace, wl)
+			if err != nil {
+				if isDelete {
+					err = nil
+				}
+				return nil, err
 			}
-			return nil, err
+			if config != nil {
+				dlog.Infof(ctx, "Found config %s", config.Namespace, config.AgentName)
+			} else {
+				dlog.Infof(ctx, "didnt found config ")
+			}
 		}
 
 		switch {
@@ -144,14 +156,10 @@ func (a *agentInjector) inject(ctx context.Context, req *admission.AdmissionRequ
 			return nil, nil
 		}
 
-		wl, err := agentmap.FindOwnerWorkload(ctx, workloadCache, k8sapi.Pod(pod))
-		if err != nil {
-			if k8sErrors.IsNotFound(err) {
-				err = nil
-				dlog.Debugf(ctx, "No workload owner found for pod %s.%s", pod.Name, pod.Namespace)
-				if isDelete && config != nil {
-					err = a.agentConfigs.Delete(ctx, config.WorkloadName, config.Namespace)
-				}
+		if wl == nil {
+			dlog.Debugf(ctx, "No workload owner found for pod %s.%s", pod.Name, pod.Namespace)
+			if isDelete && config != nil {
+				err = a.agentConfigs.Delete(ctx, config.WorkloadName, config.Namespace)
 			}
 			return nil, err
 		}
@@ -577,42 +585,24 @@ func addPodAnnotations(_ context.Context, pod *core.Pod, patches patchOps) patch
 	return patches
 }
 
-func (a *agentInjector) findConfigMapValue(ctx context.Context, workloadCache map[string]k8sapi.Workload, pod *core.Pod, wl k8sapi.Workload) (*agentconfig.Sidecar, error) {
+func (a *agentInjector) findConfigMapValue(namespace string, wl k8sapi.Workload) (*agentconfig.Sidecar, error) {
 	if a.agentConfigs == nil {
 		return nil, nil
 	}
-	var refs []meta.OwnerReference
-	if wl != nil {
-		refs = wl.GetOwnerReferences()
-	} else {
-		refs = pod.GetOwnerReferences()
+
+	if wl == nil {
+		return nil, fmt.Errorf("workload can't be nil")
 	}
-	for i := range refs {
-		if or := &refs[i]; or.Controller != nil && *or.Controller {
-			ag := agentconfig.Sidecar{}
-			ok, err := a.agentConfigs.GetInto(or.Name, pod.GetNamespace(), &ag)
-			if err != nil {
-				return nil, err
-			}
-			if ok && (ag.WorkloadKind == "" || ag.WorkloadKind == or.Kind) {
-				return &ag, nil
-			}
-			wl, err = tracing.GetWorkloadFromCache(ctx, workloadCache, or.Name, pod.GetNamespace(), or.Kind)
-			if err != nil {
-				if k8sErrors.IsNotFound(err) {
-					return nil, nil
-				}
-				var uwkErr k8sapi.UnsupportedWorkloadKindError
-				if errors.As(err, &uwkErr) {
-					// There can only be one managing controller. If it's of an unsupported
-					// type, then there's currently no configMapValue for the object that it
-					// controls.
-					return nil, nil
-				}
-				return nil, err
-			}
-			return a.findConfigMapValue(ctx, workloadCache, pod, wl)
-		}
+
+	ag := agentconfig.Sidecar{}
+	ok, err := a.agentConfigs.GetInto(wl.GetName(), namespace, &ag)
+	if err != nil {
+		return nil, err
 	}
+
+	if ok && (ag.WorkloadKind == "" || ag.WorkloadKind == wl.GetKind()) {
+		return &ag, nil
+	}
+
 	return nil, nil
 }
