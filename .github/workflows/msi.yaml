@@ -5,14 +5,15 @@ on:
       - shepz/test-wsx
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: "Test build"
         run: make build
       - name: "Test packaing"
-        run: packaging/windows-package.sh
+        shell: bash
+        run: ./packaging/windows-package.sh
 #      - name: Install WiX Toolset
 #        uses: wixtoolset/setup-wix-toolset@v3
 #        with:
