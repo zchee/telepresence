@@ -1,0 +1,45 @@
+name: Build MSI
+on:
+  push:
+    branches:
+      - shepz/test-wsx
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: "Test build"
+        run: make build
+      - name: "Test packaing"
+        run: packaging/windows-package.sh
+#      - name: Install WiX Toolset
+#        uses: wixtoolset/setup-wix-toolset@v3
+#        with:
+#          wix-version: '3.11'
+      - name: Install WiX Toolset
+        run: dotnet tool install --global wix --version 4.0.0
+
+      - name: copy files
+        run: |
+          cp ./packaging/telepresence.wxs ./telepresence-windows
+          cp ./packaging/bundle.wxs ./telepresence-windows
+          cd telepresence-windows
+          dir /A:D
+
+      - name: Build telepresence MSI
+        working-directory: ./telepresence-windows
+        run: wix build -o telepresence.msi telepresence.wxs
+      - name: Build telepresence MSI
+        run: wix build -o telepresence-windows/bundle.msi telepresence-windows/bundle.wxs
+
+      - name: Upload tp MSI
+        uses: actions/upload-artifact@v2
+        with:
+          name: telepresence.msi
+          path: ./telepresence-windows/telepresence.msi
+      - name: Upload bundle MSI
+        uses: actions/upload-artifact@v2
+        with:
+          name: bundle.msi
+          path: ./telepresence-windows/bundle.msi

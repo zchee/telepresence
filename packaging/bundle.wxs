@@ -1,0 +1,16 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Bundle Version="2.12.2" UpgradeCode="82fd5464-dd21-44bd-a44d-053cea4da740">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication Theme="rtfLicense" LicenseUrl=""
+        xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal" />
+    </BootstrapperApplication>
+
+    <Chain>
+      <MsiPackage SourceFile="telepresence.msi" />
+      <MsiPackage SourceFile="winfsp.msi" />
+      <MsiPackage SourceFile="sshfs-win.msi" />
+    </Chain>
+  </Bundle>
+
+</Wix>

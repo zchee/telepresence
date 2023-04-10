@@ -1,0 +1,60 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Telepresence" Language="1033" Codepage="1252" Version="2.12.3"
+    Manufacturer="Ambassador Labs" InstallerVersion="100" ProductCode="*">
+    <SummaryInformation Keywords="Installer" Description="Ambassador's Telepresence Installer"
+      Manufacturer="Ambassador Labs" />
+
+    <Media Id="1" Cabinet="Sample.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
+    <Property Id="DiskPrompt" Value="Ambassador's Telepresence Installer" />
+
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="WintunLibrary" />
+      <ComponentRef Id="ProgramMenuDir" />
+    </Feature>
+
+    <Icon Id="logo.exe" SourceFile="favicon.ico" />
+
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="Ambassador" Name="Ambassador">
+        <Directory Id="INSTALLDIR" Name="Telepresence">
+
+          <Component Id="MainExecutable" Guid="*">
+            <File Id="TelepresenceEXE" Name="telepresence.exe" DiskId="1" Source="telepresence.exe"
+              KeyPath="yes">
+              <Shortcut Id="startmenuFoobar10" Directory="ProgramMenuDir" Name="Telepresence"
+                WorkingDirectory="INSTALLDIR" Icon="logo.exe" IconIndex="0" Advertise="yes" />
+            </File>
+
+            <Environment
+              Id="PATH"
+              Name="PATH"
+              Value="[INSTALLDIR]"
+              Permanent="yes"
+              Part="last"
+              Action="set"
+              System="no" />
+          </Component>
+
+          <Component Id="WintunLibrary" Guid="*">
+            <File Id="WintunDLL" Name="wintun.dll" DiskId="1" Source="wintun.dll" KeyPath="yes" />
+          </Component>
+
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="Telepresence">
+
+        <Component Id="ProgramMenuDir" Guid="*">
+          <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Type="string"
+            Value="" KeyPath="yes" />
+        </Component>
+
+      </Directory>
+    </StandardDirectory>
+
+  </Package>
+</Wix>
