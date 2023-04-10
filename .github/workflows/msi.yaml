@@ -24,7 +24,7 @@ jobs:
         run: |
           cp ./packaging/telepresence.wxs ./telepresence-windows
           cp ./packaging/bundle.wxs ./telepresence-windows
-          cd telepresence-windows
+          cd ${{ env:GITHUB_WORKSPACE }}\telepresence-windows
           dir /A:D
 
       - name: Build telepresence MSI
