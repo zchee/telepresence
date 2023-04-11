@@ -16,6 +16,7 @@ WINFSP_VERSION=1.11.22176
 SSHFS_WIN_VERSION=3.7.21011
 WINTUN_VERSION=0.14.1
 BINDIR="${BINDIR:-./build-output/bin}"
+PACKAGEDIR="${PACKAGEDIR:-./.oss/packaging}"
 
 ZIPDIR="${ZIPDIR:-./telepresence-windows}"
 mkdir -p "$ZIPDIR"
@@ -40,5 +41,15 @@ cp "${BINDIR}/telepresence.exe" "${ZIPDIR}/telepresence.exe"
 cp "$( dirname -- "${BASH_SOURCE[0]}")/install-telepresence.ps1" "${ZIPDIR}/install-telepresence.ps1"
 
 zip -r -j "${BINDIR}/telepresence.zip" "${ZIPDIR}"
+
+cp "${PACKAGEDIR}"/bundle.wxs "${ZIPDIR}"
+cp "${PACKAGEDIR}"/telepresence.wxs "${ZIPDIR}"
+curl -L -o "${ZIPDIR}"/favicon.ico "https://cncf-branding.netlify.app/img/projects/telepresence/icon/color/telepresence-icon-color.png"
+
+dotnet tool install --global wix --version 4.0.0
+cd ${ZIPDIR}
+wix build -o telepresence.msi telepresence.wxs
+wix extension add -g WixToolset.Bal.wixext
+wix build -ext WixToolset.Bal.wixext -o ".${BINDIR}/telepresence-setup.exe" bundle.wxs
 
 rm -rf "${ZIPDIR}"
