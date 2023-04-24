@@ -23,6 +23,8 @@
 
 - Bugfix: The traffic-manager would sometimes panic and exit after some time due to a type cast panic.
 
+- Bugfix: Replace deprecated info in the JSON output of the telepresence list command.
+
 ### 2.13.1 (April 20, 2023)
 
 - Change: Update ambassador-agent to version 1.13.13
@@ -37,7 +39,7 @@
 - Feature: There's a new --address flag to the intercept command allowing users to set the target IP of the intercept.
 
 - Feature: The new flags `--docker-build`, and `--docker-build-opt` was added to `telepresence intercept` to facilitate a
-  docker run directly from a docker context. 
+  docker run directly from a docker context.
 
 - Bugfix: Using `telepresence intercept --docker-run` now works with a container based daemon started with `telepresence connect --docker`
 
