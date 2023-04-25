@@ -143,13 +143,13 @@ type Sidecar struct {
 	TracingPort uint16 `json:"tracingPort,omitempty"`
 
 	// LogLevel used by the envoy instance
-	EnvoyLogLevel string `json:"EnvoyLogLevel,omitempty"`
+	EnvoyLogLevel string `json:"envoyLogLevel,omitempty"`
 
 	// The port used by the Envoy server
-	EnvoyServerPort uint16 `json:"EnvoyServerPort,omitempty"`
+	EnvoyServerPort uint16 `json:"envoyServerPort,omitempty"`
 
 	// The port used for Envoy administration
-	EnvoyAdminPort uint16 `json:"EnvoyAdminPort,omitempty"`
+	EnvoyAdminPort uint16 `json:"envoyAdminPort,omitempty"`
 
 	// Resources for the sidecar
 	Resources *core.ResourceRequirements `json:"resources,omitempty"`
