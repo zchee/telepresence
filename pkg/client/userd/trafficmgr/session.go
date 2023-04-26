@@ -559,11 +559,6 @@ func (s *session) getInfosForWorkloads(
 			return
 		}
 		for _, workload := range wls {
-			if _, ok := wiMap[workload.GetUID()]; ok {
-				continue
-			}
-			name := workload.GetName()
-			dlog.Debugf(ctx, "Getting info for %s %s.%s, matching service %s.%s", workload.GetKind(), name, workload.GetNamespace(), svc.Name, svc.Namespace)
 			ports := []*rpc.WorkloadInfo_ServiceReference_Port{}
 			for _, p := range svc.Spec.Ports {
 				ports = append(ports, &rpc.WorkloadInfo_ServiceReference_Port{
@@ -571,17 +566,46 @@ func (s *session) getInfosForWorkloads(
 					Port: p.Port,
 				})
 			}
+
+			if _, ok := wiMap[workload.GetUID()]; ok {
+
+				if _, ok := wiMap[workload.GetUID()].Services.Data[string(svc.UID)]; !ok {
+					wiMap[workload.GetUID()].Services.Data[string(svc.UID)] = &rpc.WorkloadInfo_ServiceReference{
+						Name:      svc.Name,
+						Namespace: svc.Namespace,
+						Uid:       string(svc.UID),
+						Ports:     ports,
+					}
+
+				}
+
+				continue
+			}
+			name := workload.GetName()
+			dlog.Debugf(ctx, "Getting info for %s %s.%s, matching service %s.%s", workload.GetKind(), name, workload.GetNamespace(), svc.Name, svc.Namespace)
+
+			//services = append(services, &rpc.WorkloadInfo_ServiceReference{
+			//	Name:      svc.Name,
+			//	Namespace: svc.Namespace,
+			//	Uid:       string(svc.UID),
+			//	Ports:     ports,
+			//})
+
+			services := make(map[string]*rpc.WorkloadInfo_ServiceReference)
+
+			services[string(svc.UID)] = &rpc.WorkloadInfo_ServiceReference{
+				Name:      svc.Name,
+				Namespace: svc.Namespace,
+				Uid:       string(svc.UID),
+				Ports:     ports,
+			}
+
 			wlInfo := &rpc.WorkloadInfo{
 				Name:                 name,
 				Namespace:            workload.GetNamespace(),
 				WorkloadResourceType: workload.GetKind(),
 				Uid:                  string(workload.GetUID()),
-				Service: &rpc.WorkloadInfo_ServiceReference{
-					Name:      svc.Name,
-					Namespace: svc.Namespace,
-					Uid:       string(svc.UID),
-					Ports:     ports,
-				},
+				Services:             &rpc.WorkloadInfo_Services{Data: services},
 			}
 			var ok bool
 			if wlInfo.InterceptInfos, ok = iMap[name]; !ok && filter <= rpc.ListRequest_INTERCEPTS {

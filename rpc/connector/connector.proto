@@ -311,7 +311,9 @@ message WorkloadInfo {
     repeated Port ports = 4;
   }
 
-  optional ServiceReference service = 7;
+  message Services { map<string, ServiceReference> data = 1; }
+
+  optional Services services = 7;
 
   string uid = 8;
 
