@@ -21,6 +21,7 @@ import (
 	"github.com/telepresenceio/telepresence/v2/pkg/client/scout"
 	"github.com/telepresenceio/telepresence/v2/pkg/client/userd"
 	user_daemon "github.com/telepresenceio/telepresence/v2/pkg/client/userd/daemon"
+	"github.com/telepresenceio/telepresence/v2/pkg/client/userd/trafficmgr"
 )
 
 const processName = "pod-daemon"
@@ -135,6 +136,9 @@ func main(ctx context.Context, args *Args) error {
 	ctx = client.WithEnv(ctx, env)
 
 	scoutReporter := scout.NewReporter(ctx, processName)
+	//ctx = userd.WithNewServiceFunc(ctx, user_daemon.NewService)
+	ctx = userd.WithNewSessionFunc(ctx, trafficmgr.NewSession)
+	//ctx = userd.WithNewServiceFunc(ctx, user_daemon.NewService)
 
 	grp := dgroup.NewGroup(ctx, dgroup.GroupConfig{
 		SoftShutdownTimeout:  2 * time.Second,
@@ -142,9 +146,11 @@ func main(ctx context.Context, args *Args) error {
 		ShutdownOnNonError:   true,
 	})
 	userdService, err := user_daemon.NewService(ctx, grp, scoutReporter, cfg, nil)
+	//userdService, err := userd.GetNewServiceFunc(ctx)(ctx, grp, scoutReporter, cfg, nil)
 	if err != nil {
 		return err
 	}
+
 	var userdCoreImpl *user_daemon.Service
 	userdService.As(&userdCoreImpl)
 
@@ -154,15 +160,16 @@ func main(ctx context.Context, args *Args) error {
 		// TODO: perhaps provide the real thing if we decide to embed the fuseftp binary
 		fuseftpCh := make(chan rpc.FuseFTPClient)
 		close(fuseftpCh)
+
 		return user_daemon.ManageSessions(ctx, userdService)
 	})
 	grp.Go("main", func(ctx context.Context) error {
 		dlog.Infof(ctx, "Connecting to traffic manager...")
 		cResp, err := userdCoreImpl.Connect(ctx, &rpc_userd.ConnectRequest{
 			// I don't think we need to set anything here.
-			KubeFlags:        nil, // nil should be fine since we're in-cluster
-			MappedNamespaces: nil, // we're not doing networking things.
-			IsPodDaemon:      true,
+			//KubeFlags:        nil, // nil should be fine since we're in-cluster
+			//MappedNamespaces: nil, // we're not doing networking things.
+			IsPodDaemon: true,
 		})
 		if err != nil {
 			return err

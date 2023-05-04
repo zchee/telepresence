@@ -174,7 +174,7 @@ release-binary: $(TELEPRESENCE)
 tel2-image: build-deps
 	mkdir -p $(BUILDDIR)
 	printf $(TELEPRESENCE_VERSION) > $(BUILDDIR)/version.txt ## Pass version in a file instead of a --build-arg to maximize cache usage
-	docker build --target tel2 --tag tel2 --tag $(TELEPRESENCE_REGISTRY)/tel2:$(patsubst v%,%,$(TELEPRESENCE_VERSION)) -f build-aux/docker/images/Dockerfile.traffic .
+	docker build --platform linux/amd64 --load --target tel2 --tag tel2 --tag $(TELEPRESENCE_REGISTRY)/tel2:$(patsubst v%,%,$(TELEPRESENCE_VERSION)) -f build-aux/docker/images/Dockerfile.traffic .
 
 .PHONY: client-image
 client-image: build-deps

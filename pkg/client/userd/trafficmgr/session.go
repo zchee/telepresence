@@ -160,6 +160,9 @@ func NewSession(
 		return ctx, nil, connectError(rpc.ConnectInfo_CLUSTER_FAILED, err)
 	}
 	dlog.Infof(ctx, "Connected to context %s (%s)", cluster.Context, cluster.Server)
+	////restConfig := cluster.Kubeconfig
+	//
+	//dlog.Infof(ctx, "restconfig %s", fmt.Sprintf("%+v\n", cluster.Kubeconfig))
 
 	// Phone home with the information about the size of the cluster
 	ctx = cluster.WithK8sInterface(ctx)
@@ -833,6 +836,8 @@ func (s *session) UpdateStatus(c context.Context, cr *rpc.ConnectRequest) *rpc.C
 	if len(namespaces) == 0 {
 		namespaces = client.GetConfig(c).Cluster.MappedNamespaces
 	}
+
+	dlog.Infof(c, "namespaces : %s", namespaces)
 
 	if s.SetMappedNamespaces(c, namespaces) {
 		if len(namespaces) == 0 && s.CanWatchNamespaces(c) {

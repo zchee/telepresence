@@ -264,7 +264,10 @@ func NewInClusterConfig(c context.Context, flagMap map[string]string) (*Kubeconf
 		managerNamespace = GetConfig(c).Cluster.DefaultManagerNamespace
 	}
 
+	dlog.Infof(c, "manager_namespace : %s", managerNamespace)
+
 	return &Kubeconfig{
+		Context:     "ntm",
 		Namespace:   namespace,
 		Server:      restConfig.Host,
 		FlagMap:     flagMap,
