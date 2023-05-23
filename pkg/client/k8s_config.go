@@ -264,6 +264,20 @@ func NewInClusterConfig(c context.Context, flagMap map[string]string) (*Kubeconf
 		managerNamespace = GetConfig(c).Cluster.DefaultManagerNamespace
 	}
 
+	fmt.Printf("%+v\n", Kubeconfig{
+		Namespace:   namespace,
+		Server:      restConfig.Host,
+		FlagMap:     flagMap,
+		ConfigFlags: configFlags,
+		RestConfig:  restConfig,
+		// it may be empty, but we should avoid nil deref
+		KubeconfigExtension: KubeconfigExtension{
+			Manager: &ManagerConfig{
+				Namespace: managerNamespace,
+			},
+		},
+	})
+
 	return &Kubeconfig{
 		Namespace:   namespace,
 		Server:      restConfig.Host,
