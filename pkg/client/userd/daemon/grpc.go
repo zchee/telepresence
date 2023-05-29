@@ -318,6 +318,7 @@ func (s *Service) RemoveIntercept(c context.Context, rr *manager.RemoveIntercept
 }
 
 func (s *Service) UpdateIntercept(c context.Context, rr *manager.UpdateInterceptRequest) (result *manager.InterceptInfo, err error) {
+	dlog.Infof(c, "####req %+v", rr)
 	err = s.WithSession(c, "UpdateIntercept", func(c context.Context, session userd.Session) error {
 		result, err = session.ManagerClient().UpdateIntercept(c, rr)
 		return err
