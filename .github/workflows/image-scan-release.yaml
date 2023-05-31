@@ -1,0 +1,37 @@
+name: "Image Scan Test"
+on:
+  push:
+    branches:
+      - shepz/add-scan-to-rel
+
+jobs:
+  semver:
+    runs-on: ubuntu-latest
+    #    needs: publish_artifacts
+    outputs:
+      telepresence_current_release: ${{ steps.current.outputs.telepresence_current_release }}
+    steps:
+      - name: Get current release
+        id: current
+        run: |
+          echo "telepresence_current_release=$(echo "v2.13.3" | sed 's/^v//')" >> $GITHUB_OUTPUT
+
+  trivy-container-scan:
+    runs-on: ubuntu-latest
+    needs: semver
+    steps:
+      - name: Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'datawire/tel2:${{ needs.semver.outputs.telepresence_current_release }}'
+          format: sarif
+          exit-code: 0 # only warn for now until we have backed it into our processes
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+          hide-progress: false
+      - name: Upload Scan to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
