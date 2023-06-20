@@ -1,0 +1,34 @@
+name: Releases
+
+on:
+  push:
+    branches:
+      - shepz/fix-windows-2.14.0
+
+jobs:
+  build-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        runners:
+#          - ubuntu-latest
+#          - macos-latest
+#          - macOS-arm64
+          - windows-2019
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/install-dependencies
+        name: install dependencies
+      - name: set version
+        shell: bash
+        run: echo "TELEPRESENCE_VERSION=v2.14.0" >> $GITHUB_ENV
+      - run: make release-binary
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: build-output/release
+          retention-days: 1
