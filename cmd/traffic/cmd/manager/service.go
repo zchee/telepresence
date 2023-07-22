@@ -462,6 +462,9 @@ func (s *service) CreateIntercept(ctx context.Context, ciReq *rpc.CreateIntercep
 		return nil, status.Errorf(codes.InvalidArgument, val)
 	}
 
+	dlog.Infof(ctx, "client v", client)
+	dlog.Infof(ctx, "ic %v", ciReq)
+
 	interceptInfo, err := s.state.AddIntercept(sessionID, s.clusterInfo.ID(), client, ciReq)
 	if err != nil {
 		return nil, err
