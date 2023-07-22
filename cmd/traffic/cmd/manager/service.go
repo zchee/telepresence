@@ -465,6 +465,10 @@ func (s *service) CreateIntercept(ctx context.Context, ciReq *rpc.CreateIntercep
 	dlog.Infof(ctx, "client v", client)
 	dlog.Infof(ctx, "ic %v", ciReq)
 
+	if ciReq.ApiKey == "" {
+		client.ApiKey = ciReq.ApiKey
+	}
+
 	interceptInfo, err := s.state.AddIntercept(sessionID, s.clusterInfo.ID(), client, ciReq)
 	if err != nil {
 		return nil, err
