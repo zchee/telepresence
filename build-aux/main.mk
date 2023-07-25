@@ -172,7 +172,11 @@ authenticator:
 .PHONY: release-binary
 release-binary: $(TELEPRESENCE)
 	mkdir -p $(RELEASEDIR)
+ifeq ($(GOOS), windows)
+	./packaging/windows-package.sh
+else
 	cp $(TELEPRESENCE) $(RELEASEDIR)/telepresence-$(GOOS)-$(GOARCH)$(BEXE)
+endif
 
 .PHONY: tel2-image
 tel2-image: build-deps
