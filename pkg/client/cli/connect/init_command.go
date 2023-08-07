@@ -24,6 +24,12 @@ func InitCommand(cmd *cobra.Command) (err error) {
 	return cmdInit(cmd)
 }
 
+var UserDaemonPostFlightCheckFunc = BasicUserDaemonPostFlightCheck //nolint:gochecknoglobals // extension point
+
+func BasicUserDaemonPostFlightCheck(cmd *cobra.Command) error {
+	return nil
+}
+
 func CommandInitializer(cmd *cobra.Command) (err error) {
 	ctx := cmd.Context()
 	as := cmd.Annotations
@@ -42,6 +48,13 @@ func CommandInitializer(cmd *cobra.Command) (err error) {
 				// This is OK, but further initialization is not possible
 				err = nil
 			}
+			return err
+		}
+		cmd.SetContext(ctx)
+
+		// Allow to run requests against the user daemon to validate its state.
+		err = UserDaemonPostFlightCheckFunc(cmd)
+		if err != nil {
 			return err
 		}
 
