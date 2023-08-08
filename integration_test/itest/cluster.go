@@ -68,6 +68,7 @@ type Cluster interface {
 	TelepresenceVersion() string
 	UninstallTrafficManager(ctx context.Context, managerNamespace string)
 	PackageHelmChart(ctx context.Context) (string, error)
+	GetChartValuesExtensionFunc() func(ctx context.Context, valuesYAML []byte) []byte
 	GetValuesForHelm(ctx context.Context, values map[string]string, release bool) []string
 	GetK8SCluster(ctx context.Context, context, managerNamespace string) (context.Context, *k8s.Cluster, error)
 	TelepresenceHelmInstall(ctx context.Context, upgrade bool, args ...string) error
@@ -95,6 +96,10 @@ type cluster struct {
 	userdPProf       uint16
 	rootdPProf       uint16
 	self             Cluster
+}
+
+func (s *cluster) GetChartValuesExtensionFunc() func(ctx context.Context, valuesYAML []byte) []byte {
+	return s.GetChartValuesExtensionFunc()
 }
 
 //nolint:gochecknoglobals // extension point
@@ -605,6 +610,7 @@ func (s *cluster) TelepresenceHelmInstall(ctx context.Context, upgrade bool, set
 	type xClient struct {
 		Routing map[string][]string `json:"routing"`
 	}
+
 	nsl := nss.UniqueList()
 	vx := struct {
 		LogLevel    string  `json:"logLevel"`
@@ -634,10 +640,18 @@ func (s *cluster) TelepresenceHelmInstall(ctx context.Context, upgrade bool, set
 			},
 		},
 	}
+
 	ss, err := sigsYaml.Marshal(&vx)
 	if err != nil {
 		return err
 	}
+
+	// Extension point for additional values to the chart.
+	ext := s.GetChartValuesExtensionFunc()
+	if ext != nil {
+		ss = ext(ctx, ss)
+	}
+
 	valuesFile := filepath.Join(getT(ctx).TempDir(), "values.yaml")
 	if err := os.WriteFile(valuesFile, ss, 0o644); err != nil {
 		return err

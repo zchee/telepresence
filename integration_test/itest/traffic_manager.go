@@ -10,6 +10,7 @@ import (
 
 type trafficManager struct {
 	NamespacePair
+	ChartValuesExtensionFunc func(ctx context.Context, valuesYAML []byte) []byte
 }
 
 func WithTrafficManager(np NamespacePair, f func(ctx context.Context, ch NamespacePair)) {
@@ -21,6 +22,10 @@ func WithTrafficManager(np NamespacePair, f func(ctx context.Context, ch Namespa
 		defer th.PopHarness()
 		f(ctx, th)
 	})
+}
+
+func (th *trafficManager) GetChartValuesExtensionFunc() func(ctx context.Context, valuesYAML []byte) []byte {
+	return th.ChartValuesExtensionFunc
 }
 
 func (th *trafficManager) setup(ctx context.Context) bool {
