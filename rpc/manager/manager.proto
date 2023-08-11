@@ -7,6 +7,7 @@ package telepresence.manager;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
 
 option go_package = "github.com/telepresenceio/telepresence/rpc/v2/manager";
 
@@ -74,14 +75,19 @@ message InterceptSpec {
   // Same as AgentInfo.Name of the Workload.
   string agent = 3;
 
-  // Kind of the Workload
-  string workload_kind = 13;
+  // How to decide which subset of requests to that agent to intercept.
+  string mechanism = 4;
+
+  reserved 5;
+
+  // The host on the workstation that the intercept is redirected to
+  string target_host = 6;
+
+  // The port on the workstation that the intercept is redirected to
+  int32 target_port = 7;
 
   // Same as AgentInfo.Namespace of the Workload
   string namespace = 8;
-
-  // How to decide which subset of requests to that agent to intercept.
-  string mechanism = 4;
 
   // Additional mechanism-specific arguments.  This is passed as list
   // of CLI-style --flags.  See the documentation for
@@ -90,34 +96,27 @@ message InterceptSpec {
   // to control what these values are.
   repeated string mechanism_args = 9;
 
-  string target_host = 6;
-
-  // The port on the workstation that the intercept is redirected to
-  int32 target_port = 7;
-
   // Identifier for the service port: either the name or port number
   // optionally followed by a "/TCP" or "/UDP"
   string service_port_identifier = 10;
 
-  // The resolved service port name
-  string service_port_name = 19;
-
-  // The resolved service port
-  int32 service_port = 20;
-
-  // The resolved protocol used by the service port
-  string protocol = 21; // TCP or UDP
+  // Used to be mount_point and only utilized when passing the spec between
+  // the user daemon and the CLI. It's now moved to InterceptInfo
+  reserved 11;
 
   // .uid.metadata of service associated with intercept
   string service_uid = 12;
 
-  // name of the aforementioned service
+  // Kind of the Workload
+  string workload_kind = 13;
+
+  // name of the service
   string service_name = 14;
 
   // Extra ports that will be forwarded from the intercepting client's localhost
-  // to the intercepted pod. Each entry is a string containing a port number followed
-  // by an optional "/TCP" or "/UDP".
-  repeated string local_ports = 18;
+  // to the intercepted pod.
+  // Deprecated: use local_ports instead
+  repeated int32 extra_ports = 15 [deprecated = true];
 
   // The delay imposed by a call roundtrip between the traffic-agent and
   // the client on the workstation. This delay is added to the dial_timeout
@@ -128,13 +127,21 @@ message InterceptSpec {
   int64 dial_timeout = 17;
 
   // Extra ports that will be forwarded from the intercepting client's localhost
-  // to the intercepted pod.
-  // Deprecated: use local_ports instead
-  repeated int32 extra_ports = 15;
+  // to the intercepted pod. Each entry is a string containing a port number followed
+  // by an optional "/TCP" or "/UDP".
+  repeated string local_ports = 18;
 
-  // Used to be mount_point and only utilized when passing the spec between
-  // the user daemon and the CLI. It's now moved to InterceptInfo
-  string reserved = 11;
+  // The resolved service port name
+  string service_port_name = 19;
+
+  // The resolved service port
+  int32 service_port = 20;
+
+  // The resolved protocol used by the service port
+  string protocol = 21; // TCP or UDP
+
+  // Any additional fields that might be used by an extended traffic manager. Not read by the core traffic manager service.
+  google.protobuf.Any extension = 40;
 }
 
 enum InterceptDispositionType {
