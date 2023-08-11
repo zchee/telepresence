@@ -46,6 +46,7 @@ type State interface {
 	GetSessionConsumptionMetrics(string) *SessionConsumptionMetrics
 	GetAllSessionConsumptionMetrics() map[string]*SessionConsumptionMetrics
 	GetIntercept(string) (*rpc.InterceptInfo, bool)
+	GetInterceptsForSession(string) []*rpc.InterceptInfo
 	MarkSession(*rpc.RemainRequest, time.Time) bool
 	NewInterceptInfo(string, *rpc.SessionInfo, *rpc.CreateInterceptRequest) *rpc.InterceptInfo
 	PostLookupDNSResponse(*rpc.DNSAgentResponse)
@@ -598,6 +599,17 @@ func (s *state) unlockedRemoveIntercept(interceptID string) bool {
 
 func (s *state) GetIntercept(interceptID string) (*rpc.InterceptInfo, bool) {
 	return s.intercepts.Load(interceptID)
+}
+
+func (s *state) GetInterceptsForSession(sessionID string) []*rpc.InterceptInfo {
+	icepts := s.intercepts.LoadAllMatching(func(_ string, ii *rpc.InterceptInfo) bool {
+		return ii.ClientSession.SessionId == sessionID
+	})
+	retval := []*rpc.InterceptInfo{}
+	for _, ii := range icepts {
+		retval = append(retval, ii)
+	}
+	return retval
 }
 
 func (s *state) WatchIntercepts(
