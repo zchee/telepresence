@@ -10,7 +10,7 @@ runs:
       with:
         version: 'v1.25.3'
       id: kubectl
-      
+
     - if: runner.os == 'Linux'
       name: install Linux dependencies
       shell: bash
@@ -20,7 +20,7 @@ runs:
         sudo apt-get install -y sshfs socat libfuse-dev make jq
         sudo sh -c 'echo user_allow_other >> /etc/fuse.conf'
 
-    - if: runner.os == 'macOS' and runner.arch == 'X64'
+    - if: runner.os == 'macOS' && runner.arch == 'X64'
       name: install macOS-x86 dependencies
       shell: bash
       env:
@@ -34,7 +34,7 @@ runs:
         brew link --overwrite sshfs-mac
         brew install jq
 
-    - if: runner.os == 'macOS' and runner.arch == 'ARM64'
+    - if: runner.os == 'macOS' && runner.arch == 'ARM64'
       name: install macOS-arm64 dependencies
       shell: bash
       env:
