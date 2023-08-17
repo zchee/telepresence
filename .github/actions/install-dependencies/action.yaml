@@ -10,6 +10,7 @@ runs:
       with:
         version: 'v1.25.3'
       id: kubectl
+      
     - if: runner.os == 'Linux'
       name: install Linux dependencies
       shell: bash
@@ -18,8 +19,9 @@ runs:
         sudo apt-get update
         sudo apt-get install -y sshfs socat libfuse-dev make jq
         sudo sh -c 'echo user_allow_other >> /etc/fuse.conf'
-    - if: runner.os == 'macOS'
-      name: install macOS dependencies
+
+    - if: runner.os == 'macOS' and runner.arch == 'X64'
+      name: install macOS-x86 dependencies
       shell: bash
       env:
         HOMEBREW_NO_INSTALL_FROM_API: ""
@@ -30,10 +32,22 @@ runs:
         brew install --cask macfuse
         brew install gromgit/fuse/sshfs-mac
         brew link --overwrite sshfs-mac
+        brew install jq
 
-        if [[ ${RUNNER_ARCH} == "ARM64" ]]; then
-          brew install jq
-        fi
+    - if: runner.os == 'macOS' and runner.arch == 'ARM64'
+      name: install macOS-arm64 dependencies
+      shell: bash
+      env:
+        HOMEBREW_NO_INSTALL_FROM_API: ""
+      run: |
+        arch -arm64 brew untap homebrew/core || true
+        arch -arm64 brew untap homebrew/cask || true
+        arch -arm64 brew update
+        arch -arm64 brew install --cask macfuse
+        arch -arm64 brew install gromgit/fuse/sshfs-mac
+        arch -arm64 brew link --overwrite sshfs-mac
+        arch -arm64 brew install jq
+
     - if: runner.os == 'Windows'
       name: install Windows dependencies
       shell: powershell
