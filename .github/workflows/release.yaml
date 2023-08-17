@@ -27,22 +27,22 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/install-dependencies
         name: install dependencies
-      - name: set version
-        shell: bash
-        run: echo "TELEPRESENCE_VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-      - name: generate binaries
-        run: make release-binary
-      - name: Upload binaries
-        uses: actions/upload-artifact@v3
-        with:
-          name: binaries
-          path: build-output/release
-          retention-days: 1
-      - if: runner.os == 'Linux' && runner.arch == 'X64'
-        name: Upload Docker image
-        run: |
-          docker login -u="${{ secrets.DOCKERHUB_USERNAME }}" -p="${{ secrets.DOCKERHUB_PASSWORD }}"
-          make push-tel2-image
+      # - name: set version
+      #   shell: bash
+      #   run: echo "TELEPRESENCE_VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+      # - name: generate binaries
+      #   run: make release-binary
+      # - name: Upload binaries
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: binaries
+      #     path: build-output/release
+      #     retention-days: 1
+      # - if: runner.os == 'Linux' && runner.arch == 'X64'
+      #   name: Upload Docker image
+      #   run: |
+      #     docker login -u="${{ secrets.DOCKERHUB_USERNAME }}" -p="${{ secrets.DOCKERHUB_PASSWORD }}"
+      #     make push-tel2-image
 
   # publish-release:
   #   runs-on: ubuntu-latest
