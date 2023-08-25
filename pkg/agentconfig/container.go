@@ -9,6 +9,7 @@ import (
 
 	"github.com/blang/semver"
 	core "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/datawire/dlib/dlog"
 )
@@ -129,6 +130,12 @@ func AgentContainer(
 		Env:          evs,
 		EnvFrom:      efs,
 		VolumeMounts: mounts,
+		SecurityContext: &core.SecurityContext{
+			AllowPrivilegeEscalation: pointer.Bool(false),
+			Capabilities: &core.Capabilities{
+				Add: []core.Capability{"DROP"},
+			},
+		},
 		ReadinessProbe: &core.Probe{
 			ProbeHandler: core.ProbeHandler{
 				Exec: &core.ExecAction{

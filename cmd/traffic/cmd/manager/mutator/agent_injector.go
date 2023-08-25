@@ -197,6 +197,9 @@ func (a *agentInjector) inject(ctx context.Context, req *admission.AdmissionRequ
 
 	// Create patch operations to add the traffic-agent sidecar
 	if len(patches) > 0 {
+		for _, p := range patches {
+			dlog.Infof(ctx, "Patch for pod %s.%s: %+v\\n", pod.Name, pod.Namespace, p)
+		}
 		dlog.Infof(ctx, "Injecting %d patches into pod %s.%s", len(patches), pod.Name, pod.Namespace)
 		span.SetAttributes(attribute.Stringer("tel2.patches", patches))
 	}
