@@ -204,6 +204,8 @@ func serveMutatingFunc(ctx context.Context, r *http.Request, mf mutatorFunc) ([]
 		return nil, http.StatusBadRequest, errors.New("malformed admission review: request is nil")
 	}
 
+	dlog.Infof(ctx, "Mutating webhook request: %s", string(request.Object.Raw))
+
 	// Construct the AdmissionReview response.
 	response := admission.AdmissionResponse{
 		UID:     request.UID,
@@ -247,5 +249,6 @@ func serveMutatingFunc(ctx context.Context, r *http.Request, mf mutatorFunc) ([]
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("marshaling response: %v", err)
 	}
+	dlog.Infof(ctx, "Mutating webhook response: %s", string(bytes))
 	return bytes, http.StatusOK, nil
 }
