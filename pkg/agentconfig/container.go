@@ -133,7 +133,12 @@ func AgentContainer(
 		SecurityContext: &core.SecurityContext{
 			AllowPrivilegeEscalation: pointer.Bool(false),
 			Capabilities: &core.Capabilities{
-				Add: []core.Capability{"DROP"},
+				Drop: []core.Capability{"ALL"},
+			},
+			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsNonRoot:           pointer.Bool(true),
+			SeccompProfile: &core.SeccompProfile{
+				Type: core.SeccompProfileTypeRuntimeDefault,
 			},
 		},
 		ReadinessProbe: &core.Probe{
