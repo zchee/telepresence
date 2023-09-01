@@ -9,7 +9,6 @@ import (
 
 	"github.com/blang/semver"
 	core "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 
 	"github.com/datawire/dlib/dlog"
 )
@@ -141,10 +140,10 @@ func AgentContainer(
 		//		Type: core.SeccompProfileTypeRuntimeDefault,
 		//	},
 		//},
-		SecurityContext: &core.SecurityContext{
-			RunAsUser:    pointer.Int64(1001120000),
-			RunAsNonRoot: pointer.Bool(true),
-		},
+		//SecurityContext: &core.SecurityContext{
+		//	RunAsUser:    pointer.Int64(1001120000),
+		//	RunAsNonRoot: pointer.Bool(true),
+		//},
 		ReadinessProbe: &core.Probe{
 			ProbeHandler: core.ProbeHandler{
 				Exec: &core.ExecAction{
@@ -154,6 +153,12 @@ func AgentContainer(
 		},
 		ImagePullPolicy: core.PullPolicy(config.PullPolicy),
 	}
+
+	// use the primary container's constraints to ensure scc compliance, if set
+	if sc := pod.Spec.Containers[0].SecurityContext; sc != nil {
+		ac.SecurityContext = sc
+	}
+
 	if r := config.Resources; r != nil {
 		ac.Resources = *r
 	}
