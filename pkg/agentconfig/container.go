@@ -9,6 +9,7 @@ import (
 
 	"github.com/blang/semver"
 	core "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/datawire/dlib/dlog"
 )
@@ -140,6 +141,10 @@ func AgentContainer(
 		//		Type: core.SeccompProfileTypeRuntimeDefault,
 		//	},
 		//},
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:    pointer.Int64(1001120000),
+			RunAsNonRoot: pointer.Bool(true),
+		},
 		ReadinessProbe: &core.Probe{
 			ProbeHandler: core.ProbeHandler{
 				Exec: &core.ExecAction{
