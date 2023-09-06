@@ -154,10 +154,22 @@ func AgentContainer(
 		ImagePullPolicy: core.PullPolicy(config.PullPolicy),
 	}
 
-	// use the primary container's constraints to ensure scc compliance, if set
-	if sc := pod.Spec.Containers[0].SecurityContext; sc != nil {
-		ac.SecurityContext = sc
+outerLoop:
+	for _, cc := range config.Containers {
+		if cc.Intercepts != nil {
+			for i, app := range pod.Spec.Containers {
+				if app.Name == cc.Name {
+					ac.SecurityContext = pod.Spec.Containers[i].SecurityContext
+					break outerLoop
+				}
+			}
+		}
 	}
+
+	//// use the primary container's constraints to ensure scc compliance, if set
+	//if sc := pod.Spec.Containers[0].SecurityContext; sc != nil {
+	//	ac.SecurityContext = sc
+	//}
 
 	if r := config.Resources; r != nil {
 		ac.Resources = *r
