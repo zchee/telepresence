@@ -19,6 +19,7 @@ func AgentContainer(
 	pod *core.Pod,
 	config *Sidecar,
 ) *core.Container {
+	var firstInterceptedContainer *Container
 	ports := make([]core.ContainerPort, 0, 5)
 	for _, cc := range config.Containers {
 		for _, ic := range PortUniqueIntercepts(cc) {
@@ -27,6 +28,12 @@ func AgentContainer(
 				ContainerPort: int32(ic.AgentPort),
 				Protocol:      ic.Protocol,
 			})
+			if firstInterceptedContainer != nil {
+				continue
+			}
+			if len(ports) > 0 && firstInterceptedContainer == nil {
+				firstInterceptedContainer = cc
+			}
 		}
 	}
 	if len(ports) == 0 {
@@ -155,20 +162,12 @@ func AgentContainer(
 	}
 
 	// use first intercepted container with security context to ensure psp compliance for the agent
-outerLoop:
-	for _, cc := range config.Containers {
-		if cc.Intercepts == nil {
-			continue
-		}
-
-		for _, app := range pod.Spec.Containers {
-			if app.Name == cc.Name {
-				if app.SecurityContext != nil {
-					ac.SecurityContext = app.SecurityContext
-					break outerLoop
-				}
-				break
+	for _, app := range pod.Spec.Containers {
+		if app.Name == firstInterceptedContainer.Name {
+			if app.SecurityContext != nil {
+				ac.SecurityContext = app.SecurityContext
 			}
+			break
 		}
 	}
 
