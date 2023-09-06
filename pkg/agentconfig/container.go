@@ -157,12 +157,17 @@ func AgentContainer(
 	// use first intercepted container with security context to ensure psp compliance for the agent
 outerLoop:
 	for _, cc := range config.Containers {
-		if cc.Intercepts != nil {
-			for _, app := range pod.Spec.Containers {
-				if app.Name == cc.Name && app.SecurityContext != nil {
+		if cc.Intercepts == nil {
+			continue
+		}
+
+		for _, app := range pod.Spec.Containers {
+			if app.Name == cc.Name {
+				if app.SecurityContext != nil {
 					ac.SecurityContext = app.SecurityContext
 					break outerLoop
 				}
+				break
 			}
 		}
 	}
