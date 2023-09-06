@@ -154,12 +154,13 @@ func AgentContainer(
 		ImagePullPolicy: core.PullPolicy(config.PullPolicy),
 	}
 
+	// use first intercepted container with security context to ensure psp compliance for the agent
 outerLoop:
 	for _, cc := range config.Containers {
 		if cc.Intercepts != nil {
-			for i, app := range pod.Spec.Containers {
-				if app.Name == cc.Name {
-					ac.SecurityContext = pod.Spec.Containers[i].SecurityContext
+			for _, app := range pod.Spec.Containers {
+				if app.Name == cc.Name && app.SecurityContext != nil {
+					ac.SecurityContext = app.SecurityContext
 					break outerLoop
 				}
 			}
