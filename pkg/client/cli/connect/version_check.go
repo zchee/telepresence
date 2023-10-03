@@ -44,10 +44,10 @@ func versionCheck(ctx context.Context, daemonBinary string, userD *daemon.UserCl
 		return errcat.User.Newf("version mismatch. Client %s != user daemon %s, please run 'telepresence quit -s' and reconnect",
 			version.Version, vu.Version)
 	}
-	if daemonBinary != "" && vu.Executable != daemonBinary {
-		return errcat.User.Newf("executable mismatch. Connector using %s, configured to use %s, please run 'telepresence quit -s' and reconnect",
-			vu.Executable, daemonBinary)
-	}
+	//if daemonBinary != "" && vu.Executable != daemonBinary {
+	//	return errcat.User.Newf("executable mismatch. Connector using %s, configured to use %s, please run 'telepresence quit -s' and reconnect",
+	//		vu.Executable, daemonBinary)
+	//}
 	vr, err := userD.RootDaemonVersion(ctx, &empty.Empty{})
 	if err == nil && version.Version != vr.Version {
 		return errcat.User.Newf("version mismatch. Client %s != Root Daemon %s, please run 'telepresence quit -s' and reconnect",

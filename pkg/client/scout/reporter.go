@@ -190,9 +190,12 @@ func NewReporterForInstallType(ctx context.Context, mode string, installType Ins
 		},
 		reportAnnotators: reportAnnotators,
 	}
+	r.reporter.Endpoint = "https://staging-metriton.datawire.io/beta/scout"
+
 	if env := client.GetEnv(ctx); env != nil && !env.ScoutDisable {
 		// Some tests disable scout reporting by setting the host IP to 127.0.0.1. This spams
 		// the logs with lots of "connection refused" messages and makes them hard to read.
+		// mh, _ := url.Parse(metriton.DefaultEndpoint)
 		mh, _ := url.Parse(metriton.DefaultEndpoint)
 		luc, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
