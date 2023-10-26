@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/strings/slices"
 
 	"github.com/datawire/dlib/dgroup"
 	"github.com/datawire/dlib/dhttp"
@@ -26,6 +27,7 @@ import (
 	rpc "github.com/telepresenceio/telepresence/rpc/v2/manager"
 	"github.com/telepresenceio/telepresence/v2/cmd/traffic/cmd/manager/managerutil"
 	"github.com/telepresenceio/telepresence/v2/cmd/traffic/cmd/manager/mutator"
+	"github.com/telepresenceio/telepresence/v2/cmd/traffic/cmd/manager/state"
 	"github.com/telepresenceio/telepresence/v2/pkg/agentmap"
 	"github.com/telepresenceio/telepresence/v2/pkg/tracing"
 	"github.com/telepresenceio/telepresence/v2/pkg/version"
@@ -36,6 +38,138 @@ var (
 	NewServiceFunc              = NewService                          //nolint:gochecknoglobals // extension point
 	WithAgentImageRetrieverFunc = managerutil.WithAgentImageRetriever //nolint:gochecknoglobals // extension point
 )
+
+var PrometheusConsumptionCounterLabelsResolver = map[string]LabelResolver{
+	"client": func(st state.State, sessionID string) string {
+		if st.GetClient(sessionID) != nil {
+			return st.GetClient(sessionID).Name
+		}
+		return "unknown"
+	},
+	"install_id": func(st state.State, sessionID string) string {
+		if st.GetClient(sessionID) != nil {
+			return st.GetClient(sessionID).InstallId
+		}
+		return "unknown"
+	},
+} //nolint:gochecknoglobals // extension point
+
+type sessionCounters struct {
+	connectionDuration float64
+	fromClientBytes    float64
+	toClientBytes      float64
+}
+
+type LabelResolver func(state.State, string) string
+
+func newConsumptionGauges() *consumptionGauges {
+	labels := make([]string, 0)
+	for label := range PrometheusConsumptionCounterLabelsResolver {
+		labels = append(labels, label)
+	}
+
+	return &consumptionGauges{
+		values: make(map[string]*sessionCounters),
+		connectionDurationCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumption_connection_duration",
+				Help: "Duration of the connection in seconds",
+			},
+			labels,
+		),
+		fromClientBytesCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumption_from_client_bytes",
+				Help: "Amount of data sent from the client to the cluster",
+			},
+			labels,
+		),
+		toClientBytesCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumption_to_client_bytes",
+				Help: "Amount of data sent from the cluster to the client",
+			},
+			labels,
+		),
+		labelResolvers: PrometheusConsumptionCounterLabelsResolver,
+	}
+}
+
+type consumptionGauges struct {
+	values map[string]*sessionCounters
+
+	connectionDurationCounter *prometheus.CounterVec
+	fromClientBytesCounter    *prometheus.CounterVec
+	toClientBytesCounter      *prometheus.CounterVec
+
+	labelResolvers map[string]LabelResolver
+}
+
+func (c *consumptionGauges) Init() {
+	prometheus.MustRegister(c.connectionDurationCounter)
+	prometheus.MustRegister(c.fromClientBytesCounter)
+	prometheus.MustRegister(c.toClientBytesCounter)
+}
+
+func (c *consumptionGauges) resolveLabels(state state.State, sessionID string) prometheus.Labels {
+	pLabels := prometheus.Labels{}
+
+	for label, resolver := range c.labelResolvers {
+		pLabels[label] = resolver(state, sessionID)
+	}
+
+	return pLabels
+}
+
+func (c *consumptionGauges) Update(state state.State) {
+	consumptionMetrics := state.GetAllSessionConsumptionMetrics()
+	for sessionID, consumptionMetric := range consumptionMetrics {
+		if _, ok := c.values[sessionID]; !ok {
+			c.values[sessionID] = &sessionCounters{}
+		}
+
+		pLabels := c.resolveLabels(state, sessionID)
+
+		c.connectionDurationCounter.With(pLabels).Add(
+			float64(consumptionMetric.ConnectDuration) - c.values[sessionID].connectionDuration)
+		c.fromClientBytesCounter.With(pLabels).Add(
+			float64(consumptionMetric.FromClientBytes.GetValue()) - c.values[sessionID].fromClientBytes)
+		c.toClientBytesCounter.With(pLabels).Add(
+			float64(consumptionMetric.ToClientBytes.GetValue()) - c.values[sessionID].toClientBytes)
+
+		c.values[sessionID].connectionDuration = float64(consumptionMetric.ConnectDuration)
+		c.values[sessionID].fromClientBytes = float64(consumptionMetric.FromClientBytes.GetValue())
+		c.values[sessionID].toClientBytes = float64(consumptionMetric.ToClientBytes.GetValue())
+	}
+
+	activeSessions := make([]string, 0)
+	for sessionID := range consumptionMetrics {
+		activeSessions = append(activeSessions, sessionID)
+	}
+
+	c.cleanup(state)
+}
+
+func (c *consumptionGauges) cleanup(state state.State) {
+	consumptionMetrics := state.GetAllSessionConsumptionMetrics()
+
+	activeSessions := make([]string, 0)
+	for sessionID := range consumptionMetrics {
+		activeSessions = append(activeSessions, sessionID)
+	}
+
+	for sessionID := range c.values {
+		if !slices.Contains(activeSessions, sessionID) {
+			delete(c.values, sessionID)
+
+			pLabels := c.resolveLabels(state, sessionID)
+
+			c.connectionDurationCounter.Delete(pLabels)
+			c.fromClientBytesCounter.Delete(pLabels)
+			c.toClientBytesCounter.Delete(pLabels)
+		}
+	}
+}
 
 // Main starts up the traffic manager and blocks until it ends.
 func Main(ctx context.Context, _ ...string) error {
@@ -140,6 +274,26 @@ func (s *service) servePrometheus(ctx context.Context) error {
 
 	newGaugeFunc("active_grpc_request_count", "Number of currently served gRPC requests", func() int {
 		return int(atomic.LoadInt32(&s.activeGrpcRequests))
+	})
+
+	wg := dgroup.NewGroup(ctx, dgroup.GroupConfig{
+		SoftShutdownTimeout: time.Second * 10,
+		HardShutdownTimeout: time.Second * 10,
+	})
+
+	wg.Go("consumption-metrics", func(ctx context.Context) error {
+		ticker := time.NewTicker(time.Second * 5)
+
+		cg := newConsumptionGauges()
+		cg.Init()
+		for {
+			select {
+			case <-ticker.C:
+				cg.Update(s.state)
+			case <-ctx.Done():
+				return nil
+			}
+		}
 	})
 
 	sc := &dhttp.ServerConfig{
