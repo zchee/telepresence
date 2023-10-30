@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	dns2 "github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -68,6 +70,27 @@ type service struct {
 }
 
 var _ rpc.ManagerServer = &service{}
+
+var interceptGlobalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "global_intercepts_count",
+	Help: "The total number of global intercepts by user",
+}, []string{"client", "install_id"})
+var interceptPersonalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "personal_intercepts_count",
+	Help: "The total number of personal intercepts by user",
+}, []string{"client", "install_id"})
+var interceptActiveStatusGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "intercept_active_status",
+	Help: "Flag to indicate when an intercept is active. 1 for active, 0 for not active.",
+}, []string{"client", "install_id", "workload"})
+var connectCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "connect_count",
+	Help: "The total number of connects by user",
+}, []string{"client", "install_id"})
+var connectDurationCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "total_connect_duration",
+	Help: "The total duration of connects by user",
+}, []string{"client", "install_id"})
 
 type wall struct{}
 
@@ -149,6 +172,9 @@ func (s *service) ArriveAsClient(ctx context.Context, client *rpc.ClientInfo) (*
 	}
 
 	installId := client.GetInstallId()
+
+	connectCounter.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId}).Inc()
+
 	return &rpc.SessionInfo{
 		SessionId: s.state.AddClient(client, s.clock.Now()),
 		ClusterId: s.clusterInfo.ID(),
@@ -197,9 +223,17 @@ func (s *service) Remain(ctx context.Context, req *rpc.RemainRequest) (*empty.Em
 // Depart terminates a session.
 func (s *service) Depart(ctx context.Context, session *rpc.SessionInfo) (*empty.Empty, error) {
 	ctx = managerutil.WithSessionInfo(ctx, session)
+	sessionID := session.GetSessionId()
 	dlog.Debug(ctx, "Depart called")
 
-	if err := s.state.RemoveSession(ctx, session.GetSessionId()); err != nil {
+	client := s.state.GetClient(sessionID)
+
+	consumption := s.state.GetSessionConsumptionMetrics(sessionID)
+	if consumption != nil {
+		connectDurationCounter.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId}).Add(float64(consumption.ConnectDuration))
+	}
+
+	if err := s.state.RemoveSession(ctx, sessionID); err != nil {
 		return nil, err
 	}
 
@@ -500,6 +534,14 @@ func (s *service) CreateIntercept(ctx context.Context, ciReq *rpc.CreateIntercep
 		}
 	}
 
+	interceptActiveStatusGauge.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId, "workload": spec.Name}).Set(1)
+
+	if spec.Mechanism == "tcp" {
+		interceptGlobalCounter.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId}).Inc()
+	} else {
+		interceptPersonalCounter.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId}).Inc()
+	}
+
 	return interceptInfo, nil
 }
 
@@ -530,12 +572,15 @@ func (s *service) RemoveIntercept(ctx context.Context, riReq *rpc.RemoveIntercep
 	ctx = managerutil.WithSessionInfo(ctx, riReq.GetSession())
 	sessionID := riReq.GetSession().GetSessionId()
 	name := riReq.Name
+	client := s.state.GetClient(sessionID)
 
 	dlog.Debugf(ctx, "RemoveIntercept called: %s", name)
 
 	if s.state.GetClient(sessionID) == nil {
 		return nil, status.Errorf(codes.NotFound, "Client session %q not found", sessionID)
 	}
+
+	interceptActiveStatusGauge.With(prometheus.Labels{"client": client.Name, "install_id": client.InstallId, "workload": riReq.Name}).Set(0)
 
 	if removed, err := s.state.RemoveIntercept(ctx, sessionID+":"+name); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to finalize intercept %q: %v", name, err)
