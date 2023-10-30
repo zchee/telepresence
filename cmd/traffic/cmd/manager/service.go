@@ -71,26 +71,29 @@ type service struct {
 
 var _ rpc.ManagerServer = &service{}
 
-var interceptGlobalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "global_intercepts_count",
-	Help: "The total number of global intercepts by user",
-}, []string{"client", "install_id"})
-var interceptPersonalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "personal_intercepts_count",
-	Help: "The total number of personal intercepts by user",
-}, []string{"client", "install_id"})
-var interceptActiveStatusGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "intercept_active_status",
-	Help: "Flag to indicate when an intercept is active. 1 for active, 0 for not active.",
-}, []string{"client", "install_id", "workload"})
-var connectCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "connect_count",
-	Help: "The total number of connects by user",
-}, []string{"client", "install_id"})
-var connectDurationCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "total_connect_duration",
-	Help: "The total duration of connects by user",
-}, []string{"client", "install_id"})
+//nolint:gochecknoglobals // prometheus metrics
+var (
+	interceptGlobalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "global_intercepts_count",
+		Help: "The total number of global intercepts by user",
+	}, []string{"client", "install_id"})
+	interceptPersonalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "personal_intercepts_count",
+		Help: "The total number of personal intercepts by user",
+	}, []string{"client", "install_id"})
+	interceptActiveStatusGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "intercept_active_status",
+		Help: "Flag to indicate when an intercept is active. 1 for active, 0 for not active.",
+	}, []string{"client", "install_id", "workload"})
+	connectCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "connect_count",
+		Help: "The total number of connects by user",
+	}, []string{"client", "install_id"})
+	connectDurationCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_connect_duration",
+		Help: "The total duration of connects by user",
+	}, []string{"client", "install_id"})
+)
 
 type wall struct{}
 
