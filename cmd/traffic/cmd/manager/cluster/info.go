@@ -12,6 +12,7 @@ import (
 	"github.com/blang/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -20,6 +21,7 @@ import (
 	"github.com/datawire/k8sapi/pkg/k8sapi"
 	rpc "github.com/telepresenceio/telepresence/rpc/v2/manager"
 	"github.com/telepresenceio/telepresence/v2/cmd/traffic/cmd/manager/managerutil"
+	"github.com/telepresenceio/telepresence/v2/pkg/client"
 	"github.com/telepresenceio/telepresence/v2/pkg/iputil"
 	"github.com/telepresenceio/telepresence/v2/pkg/subnet"
 )
@@ -70,7 +72,14 @@ func NewInfo(ctx context.Context) Info {
 
 	// Validate that the kubernetes server version is supported
 	dc := ki.Discovery()
-	info, err := dc.ServerVersion()
+	var info *version.Info
+	tCtx, tCancel := context.WithTimeout(ctx, time.Minute)
+	defer tCancel()
+	err := client.Retry(tCtx, "get server version", func(ctx context.Context) error {
+		var err error
+		info, err = dc.ServerVersion()
+		return err
+	}, time.Second, 5*time.Second)
 	if err != nil {
 		dlog.Errorf(ctx, "error getting server information: %s", err)
 	} else {
