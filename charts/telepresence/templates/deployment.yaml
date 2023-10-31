@@ -14,11 +14,17 @@ spec:
       {{- include "telepresence.selectorLabels" $ | nindent 6 }}
   template:
     metadata:
-    {{- with .podAnnotations }}
       annotations:
+    {{- if and .trafficManager .trafficManager.annotationsTemplate }}
+        {{- include "traffic-manager-annotations" $ | nindent 8}}
+    {{- end }}
+    {{- with .podAnnotations }}
         {{- toYaml . | nindent 8 }}
     {{- end }}
       labels:
+    {{- if and .trafficManager .trafficManager.labelsTempalte }}
+        {{- include "traffic-manager-labels" $ | nindent 8 }}
+    {{- end }}
         {{- include "telepresence.selectorLabels" $ | nindent 8 }}
     {{- with .podLabels }}
         {{- toYaml . | nindent 8 }}

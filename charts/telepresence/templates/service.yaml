@@ -6,6 +6,9 @@ metadata:
   namespace: {{ include "traffic-manager.namespace" . }}
   labels:
     {{- include "telepresence.labels" . | nindent 4 }}
+    {{- if and .Values.trafficManager .Values.trafficManager.labelsTempalte }}
+      {{- include "traffic-manager-svc-labels" . | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   clusterIP: None
@@ -31,6 +34,9 @@ metadata:
   namespace: {{ include "traffic-manager.namespace" . }}
   labels:
     {{- include "telepresence.labels" . | nindent 4 }}
+    {{- if and .Values.trafficManager .Values.trafficManager.labelsTempalte }}
+      {{- include "traffic-manager-injector-svc-labels" . | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -48,6 +54,10 @@ metadata:
   namespace: {{ include "traffic-manager.namespace" . }}
   labels:
     name: telepresence-prometheus
+    {{- include "telepresence.labels" . | nindent 4 }}
+    {{- if and .Values.trafficManager .Values.trafficManager.labelsTempalte }}
+      {{- include "traffic-manager-svc-labels" . | nindent 4 }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
