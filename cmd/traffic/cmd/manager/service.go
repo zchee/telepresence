@@ -79,7 +79,6 @@ func NewService(ctx context.Context) (Service, context.Context, error) {
 	ret := &service{
 		clock: wall{},
 		id:    uuid.New().String(),
-		//metrics: NewMetrics(),
 	}
 	ret.configWatcher = config.NewWatcher(managerutil.GetEnv(ctx).ManagerNamespace)
 	ret.ctx = ctx

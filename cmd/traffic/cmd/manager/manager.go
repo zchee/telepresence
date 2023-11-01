@@ -181,7 +181,8 @@ func (s *service) servePrometheus(ctx context.Context) error {
 
 	labels := []string{"client", "install_id"}
 	InterceptGlobalCounter = newCounterVecFunc("global_intercepts_count", "The total number of global intercepts by user", labels)
-	InterceptActiveStatusGauge = newGaugeVecFunc("intercept_active_status", "Flag to indicate when an intercept is active. 1 for active, 0 for not active.", append(labels, "workload"))
+	InterceptActiveStatusGauge = newGaugeVecFunc("intercept_active_status",
+		"Flag to indicate when an intercept is active. 1 for active, 0 for not active.", append(labels, "workload"))
 	ConnectCounter = newCounterVecFunc("connect_count", "The total number of connects by user", labels)
 	ConnectDurationCounter = newCounterVecFunc("total_connect_duration", "The total duration of connects by user", labels)
 
