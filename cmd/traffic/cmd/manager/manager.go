@@ -35,6 +35,10 @@ var (
 	DisplayName                 = "OSS Traffic Manager"               //nolint:gochecknoglobals // extension point
 	NewServiceFunc              = NewService                          //nolint:gochecknoglobals // extension point
 	WithAgentImageRetrieverFunc = managerutil.WithAgentImageRetriever //nolint:gochecknoglobals // extension point
+	InterceptGlobalCounter      *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
+	InterceptActiveStatusGauge  *prometheus.GaugeVec                  //nolint:gochecknoglobals // prometheus metric
+	ConnectCounter              *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
+	ConnectDurationCounter      *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
 )
 
 // Main starts up the traffic manager and blocks until it ends.
@@ -115,6 +119,24 @@ func MainWithEnv(ctx context.Context) error {
 	return g.Wait()
 }
 
+func IncrementCounter(metric *prometheus.CounterVec, client, installId string) {
+	if metric != nil {
+		metric.With(prometheus.Labels{"client": client, "install_id": installId}).Inc()
+	}
+}
+
+func AddToCounter(metric *prometheus.CounterVec, client, installId string, duration float64) {
+	if metric != nil {
+		metric.With(prometheus.Labels{"client": client, "install_id": installId}).Add(duration)
+	}
+}
+
+func SetGauge(metric *prometheus.GaugeVec, client, installId, workload string, value float64) {
+	if metric != nil {
+		metric.With(prometheus.Labels{"client": client, "install_id": installId, "workload": workload}).Set(value)
+	}
+}
+
 // ServePrometheus serves Prometheus metrics if env.PrometheusPort != 0.
 func (s *service) servePrometheus(ctx context.Context) error {
 	env := managerutil.GetEnv(ctx)
@@ -128,6 +150,21 @@ func (s *service) servePrometheus(ctx context.Context) error {
 			Help: h,
 		}, func() float64 { return float64(f()) })
 	}
+
+	newCounterVecFunc := func(n, h string, labels []string) *prometheus.CounterVec {
+		return promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: n,
+			Help: h,
+		}, labels)
+	}
+
+	newGaugeVecFunc := func(n, h string, labels []string) *prometheus.GaugeVec {
+		return promauto.NewGaugeVec(prometheus.GaugeOpts{
+			Name: n,
+			Help: h,
+		}, labels)
+	}
+
 	newGaugeFunc("agent_count", "Number of connected traffic agents", s.state.CountAgents)
 	newGaugeFunc("client_count", "Number of connected clients", s.state.CountClients)
 	newGaugeFunc("intercept_count", "Number of active intercepts", s.state.CountIntercepts)
@@ -141,6 +178,12 @@ func (s *service) servePrometheus(ctx context.Context) error {
 	newGaugeFunc("active_grpc_request_count", "Number of currently served gRPC requests", func() int {
 		return int(atomic.LoadInt32(&s.activeGrpcRequests))
 	})
+
+	labels := []string{"client", "install_id"}
+	InterceptGlobalCounter = newCounterVecFunc("global_intercepts_count", "The total number of global intercepts by user", labels)
+	InterceptActiveStatusGauge = newGaugeVecFunc("intercept_active_status", "Flag to indicate when an intercept is active. 1 for active, 0 for not active.", append(labels, "workload"))
+	ConnectCounter = newCounterVecFunc("connect_count", "The total number of connects by user", labels)
+	ConnectDurationCounter = newCounterVecFunc("total_connect_duration", "The total duration of connects by user", labels)
 
 	sc := &dhttp.ServerConfig{
 		Handler: promhttp.Handler(),

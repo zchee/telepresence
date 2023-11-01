@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	dns2 "github.com/miekg/dns"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -62,7 +60,6 @@ type service struct {
 	configWatcher      config.Watcher
 	activeHttpRequests int32
 	activeGrpcRequests int32
-	metrics            *Metrics
 
 	// Possibly extended version of the service. Use when calling interface methods.
 	self Service
@@ -72,53 +69,6 @@ type service struct {
 
 var _ rpc.ManagerServer = &service{}
 
-type Metrics struct {
-	InterceptGlobalCounter     *prometheus.CounterVec
-	InterceptPersonalCounter   *prometheus.CounterVec
-	InterceptActiveStatusGauge *prometheus.GaugeVec
-	ConnectCounter             *prometheus.CounterVec
-	ConnectDurationCounter     *prometheus.CounterVec
-}
-
-func (m *Metrics) NewCounter(metric **prometheus.CounterVec, name, help string, labels []string) {
-	*metric = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: name,
-		Help: help,
-	}, labels)
-}
-
-func (m *Metrics) NewGauge(metric **prometheus.GaugeVec, name, help string, labels []string) {
-	*metric = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: name,
-		Help: help,
-	}, labels)
-}
-
-func NewMetrics() *Metrics {
-	m := &Metrics{}
-	labels := []string{"client", "install_id"}
-
-	m.NewCounter(&m.InterceptGlobalCounter, "global_intercepts_count", "The total number of global intercepts by user", labels)
-	m.NewCounter(&m.InterceptPersonalCounter, "personal_intercepts_count", "The total number of personal intercepts by user", labels)
-	m.NewGauge(&m.InterceptActiveStatusGauge, "intercept_active_status", "Flag to indicate when an intercept is active. 1 for active, 0 for not active.", append(labels, "workload"))
-	m.NewCounter(&m.ConnectCounter, "connect_count", "The total number of connects by user", labels)
-	m.NewCounter(&m.ConnectDurationCounter, "total_connect_duration", "The total duration of connects by user", labels)
-
-	return m
-}
-
-func IncrementCounter(metric *prometheus.CounterVec, client, installId string) {
-	metric.With(prometheus.Labels{"client": client, "install_id": installId}).Inc()
-}
-
-func AddToCounter(metric *prometheus.CounterVec, client, installId string, duration float64) {
-	metric.With(prometheus.Labels{"client": client, "install_id": installId}).Add(duration)
-}
-
-func SetGauge(metric *prometheus.GaugeVec, client, installId, workload string, value float64) {
-	metric.With(prometheus.Labels{"client": client, "install_id": installId, "workload": workload}).Set(value)
-}
-
 type wall struct{}
 
 func (wall) Now() time.Time {
@@ -127,9 +77,9 @@ func (wall) Now() time.Time {
 
 func NewService(ctx context.Context) (Service, context.Context, error) {
 	ret := &service{
-		clock:   wall{},
-		id:      uuid.New().String(),
-		metrics: NewMetrics(),
+		clock: wall{},
+		id:    uuid.New().String(),
+		//metrics: NewMetrics(),
 	}
 	ret.configWatcher = config.NewWatcher(managerutil.GetEnv(ctx).ManagerNamespace)
 	ret.ctx = ctx
@@ -201,7 +151,7 @@ func (s *service) ArriveAsClient(ctx context.Context, client *rpc.ClientInfo) (*
 
 	installId := client.GetInstallId()
 
-	IncrementCounter(s.metrics.ConnectCounter, client.Name, client.InstallId)
+	IncrementCounter(ConnectCounter, client.Name, client.InstallId)
 
 	return &rpc.SessionInfo{
 		SessionId: s.state.AddClient(client, s.clock.Now()),
@@ -258,7 +208,7 @@ func (s *service) Depart(ctx context.Context, session *rpc.SessionInfo) (*empty.
 
 	consumption := s.state.GetSessionConsumptionMetrics(sessionID)
 	if consumption != nil {
-		AddToCounter(s.metrics.ConnectDurationCounter, client.Name, client.InstallId, float64(consumption.ConnectDuration))
+		AddToCounter(ConnectDurationCounter, client.Name, client.InstallId, float64(consumption.ConnectDuration))
 	}
 
 	if err := s.state.RemoveSession(ctx, sessionID); err != nil {
@@ -562,13 +512,9 @@ func (s *service) CreateIntercept(ctx context.Context, ciReq *rpc.CreateIntercep
 		}
 	}
 
-	SetGauge(s.metrics.InterceptActiveStatusGauge, client.Name, client.InstallId, spec.Name, 1)
+	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, spec.Name, 1)
 
-	if spec.Mechanism == "tcp" {
-		IncrementCounter(s.metrics.InterceptGlobalCounter, client.Name, client.InstallId)
-	} else {
-		IncrementCounter(s.metrics.InterceptPersonalCounter, client.Name, client.InstallId)
-	}
+	IncrementCounter(InterceptGlobalCounter, client.Name, client.InstallId)
 
 	return interceptInfo, nil
 }
@@ -608,7 +554,7 @@ func (s *service) RemoveIntercept(ctx context.Context, riReq *rpc.RemoveIntercep
 		return nil, status.Errorf(codes.NotFound, "Client session %q not found", sessionID)
 	}
 
-	SetGauge(s.metrics.InterceptActiveStatusGauge, client.Name, client.InstallId, riReq.Name, 0)
+	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, riReq.Name, 0)
 
 	if removed, err := s.state.RemoveIntercept(ctx, sessionID+":"+name); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to finalize intercept %q: %v", name, err)
