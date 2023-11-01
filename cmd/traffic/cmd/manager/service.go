@@ -151,6 +151,7 @@ func (s *service) ArriveAsClient(ctx context.Context, client *rpc.ClientInfo) (*
 	installId := client.GetInstallId()
 
 	IncrementCounter(ConnectCounter, client.Name, client.InstallId)
+	SetGauge(ConnectActiveStatusGauge, client.Name, client.InstallId, nil, 1)
 
 	return &rpc.SessionInfo{
 		SessionId: s.state.AddClient(client, s.clock.Now()),
@@ -202,13 +203,6 @@ func (s *service) Depart(ctx context.Context, session *rpc.SessionInfo) (*empty.
 	ctx = managerutil.WithSessionInfo(ctx, session)
 	sessionID := session.GetSessionId()
 	dlog.Debug(ctx, "Depart called")
-
-	client := s.state.GetClient(sessionID)
-
-	consumption := s.state.GetSessionConsumptionMetrics(sessionID)
-	if consumption != nil {
-		AddToCounter(ConnectDurationCounter, client.Name, client.InstallId, float64(consumption.ConnectDuration))
-	}
 
 	if err := s.state.RemoveSession(ctx, sessionID); err != nil {
 		return nil, err
@@ -511,7 +505,7 @@ func (s *service) CreateIntercept(ctx context.Context, ciReq *rpc.CreateIntercep
 		}
 	}
 
-	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, spec.Name, 1)
+	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, &spec.Name, 1)
 
 	IncrementCounter(InterceptGlobalCounter, client.Name, client.InstallId)
 
@@ -553,7 +547,7 @@ func (s *service) RemoveIntercept(ctx context.Context, riReq *rpc.RemoveIntercep
 		return nil, status.Errorf(codes.NotFound, "Client session %q not found", sessionID)
 	}
 
-	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, riReq.Name, 0)
+	SetGauge(InterceptActiveStatusGauge, client.Name, client.InstallId, &name, 0)
 
 	if removed, err := s.state.RemoveIntercept(ctx, sessionID+":"+name); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to finalize intercept %q: %v", name, err)

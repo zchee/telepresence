@@ -38,7 +38,7 @@ var (
 	InterceptGlobalCounter      *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
 	InterceptActiveStatusGauge  *prometheus.GaugeVec                  //nolint:gochecknoglobals // prometheus metric
 	ConnectCounter              *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
-	ConnectDurationCounter      *prometheus.CounterVec                //nolint:gochecknoglobals // prometheus metric
+	ConnectActiveStatusGauge    *prometheus.GaugeVec                  //nolint:gochecknoglobals // prometheus metric
 )
 
 // Main starts up the traffic manager and blocks until it ends.
@@ -125,15 +125,18 @@ func IncrementCounter(metric *prometheus.CounterVec, client, installId string) {
 	}
 }
 
-func AddToCounter(metric *prometheus.CounterVec, client, installId string, duration float64) {
+func SetGauge(metric *prometheus.GaugeVec, client, installId string, workload *string, value float64) {
 	if metric != nil {
-		metric.With(prometheus.Labels{"client": client, "install_id": installId}).Add(duration)
-	}
-}
+		labels := prometheus.Labels{
+			"client":     client,
+			"install_id": installId,
+		}
 
-func SetGauge(metric *prometheus.GaugeVec, client, installId, workload string, value float64) {
-	if metric != nil {
-		metric.With(prometheus.Labels{"client": client, "install_id": installId, "workload": workload}).Set(value)
+		if workload != nil {
+			labels["workload"] = *workload
+		}
+
+		metric.With(labels).Set(value)
 	}
 }
 
@@ -184,7 +187,15 @@ func (s *service) servePrometheus(ctx context.Context) error {
 	InterceptActiveStatusGauge = newGaugeVecFunc("intercept_active_status",
 		"Flag to indicate when an intercept is active. 1 for active, 0 for not active.", append(labels, "workload"))
 	ConnectCounter = newCounterVecFunc("connect_count", "The total number of connects by user", labels)
-	ConnectDurationCounter = newCounterVecFunc("total_connect_duration", "The total duration of connects by user", labels)
+	ConnectActiveStatusGauge = newGaugeVecFunc("connect_active_status", "Flag to indicate when a connect is active. 1 for active, 0 for not active.", labels)
+
+	s.state.SetConnectionEstablishedFinalizer(func(client, installId string) {
+		SetGauge(ConnectActiveStatusGauge, client, installId, nil, 0)
+	})
+
+	s.state.SetInterceptEstablishedFinalizer(func(client, installId string, workload *string) {
+		SetGauge(InterceptActiveStatusGauge, client, installId, workload, 0)
+	})
 
 	sc := &dhttp.ServerConfig{
 		Handler: promhttp.Handler(),
