@@ -10,9 +10,6 @@ Expand the name of the chart.
 {{- if .Values.isCI }}
 {{- print $name }}
 {{- else }}
-{{- if ne $name .Release.Name }}
-{{- fail "The name of the release MUST BE traffic-manager" }}
-{{- end }}
 {{- printf "%s" .Release.Name }}
 {{- end -}}
 {{- end -}}
